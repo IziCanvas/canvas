@@ -125,9 +125,10 @@
         .color-orange { background-color: #ffedd5; color: #9a3412; border-left-color: #ea580c; }
 
         .item-card button.btn-delete {
-            background: none; border: none; color: currentColor; cursor: pointer; font-size: 16px;
-            padding: 0 4px; margin-left: 6px; opacity: 0.7; line-height: 1;
+            background: none; border: none; color: currentColor; cursor: pointer; font-size: 14px;
+            padding: 0 2px; opacity: 0.7; line-height: 1;
         }
+        .item-card button.btn-delete:hover { opacity: 1; }
 
         .add-item-box { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .input-row { display: flex; gap: 4px; align-items: center; }
@@ -404,7 +405,7 @@
             }
         }
 
-function renderBlock(blockId) {
+        function renderBlock(blockId) {
             const listEl = document.getElementById('list-' + blockId);
             if (!listEl) return;
             listEl.innerHTML = '';
@@ -449,7 +450,14 @@ function renderBlock(blockId) {
             syncData();
         }
 
-      function editItem(blockId, index) {
+        function removeItem(blockId, index) {
+            if (canvasData[blockId]) {
+                canvasData[blockId].splice(index, 1);
+                syncData();
+            }
+        }
+
+        function editItem(blockId, index) {
             const currentItem = canvasData[blockId][index];
             const currentText = typeof currentItem === 'string' ? currentItem : currentItem.text;
             
