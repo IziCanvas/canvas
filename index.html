@@ -60,6 +60,15 @@
             display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
         }
 
+        /* --- REGLAS DE OCULTAMIENTO PARA EXPORTACIÓN --- */
+        body.is-exporting .add-item-box,
+        body.is-exporting .item-actions,
+        body.is-exporting .color-selector,
+        body.is-exporting .controls,
+        body.is-exporting #connection-status {
+            display: none !important;
+        }
+
         /* Contenedor del Logo */
         .logo-container {
             width: 50px; height: 50px; border: none;
@@ -526,9 +535,8 @@
             if (saved) {
                 try { 
                     const parsed = JSON.parse(saved);
-                    // Asegurar compatibilidad si viene con estructura vieja o nueva
                     if(Array.isArray(parsed)) {
-                        canvasData.kp = parsed.kp || []; // por si acaso
+                        canvasData.kp = parsed.kp || [];
                     } else {
                         canvasData = parsed;
                     }
@@ -646,16 +654,22 @@
         }
 
         function exportPNG() {
+            document.body.classList.add('is-exporting');
             html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+                document.body.classList.remove('is-exporting');
                 const link = document.createElement('a');
                 link.download = 'business-model-canvas.png';
                 link.href = canvas.toDataURL('image/png');
                 link.click();
+            }).catch(() => {
+                document.body.classList.remove('is-exporting');
             });
         }
 
         function exportPDF() {
+            document.body.classList.add('is-exporting');
             html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+                document.body.classList.remove('is-exporting');
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('landscape', 'pt', 'a4');
@@ -663,7 +677,13 @@
                 const pdfHeight = pdf.internal.pageSize.getHeight();
                 pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
                 pdf.save('business-model-canvas.pdf');
+            }).catch(() => {
+                document.body.classList.remove('is-exporting');
             });
+        }
+    </script>
+</body>
+</html>
         }
     </script>
 </body>
