@@ -56,7 +56,6 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 15px; flex-wrap: wrap; gap: 10px;
         }
         .header h1 { font-size: 20px; color: var(--header-bg); display: flex; align-items: center; gap: 10px; }
-        .header .subtitle { font-size: 12px; color: var(--text-muted); font-weight: normal; }
 
         .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; justify-content: flex-start; }
         @media (min-width: 768px) { .controls { width: auto; justify-content: flex-end; } }
@@ -113,7 +112,7 @@
         /* Cards de Notas */
         .item-card {
             padding: 8px 10px; border-radius: 5px; font-size: 12px; display: flex;
-            justify-content: space-between; align-items: flex-start; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
             word-break: break-word; border-left: 5px solid rgba(0,0,0,0.25); font-weight: 500;
         }
 
@@ -124,11 +123,12 @@
         .color-purple { background-color: #f3e8ff; color: #6b21a8; border-left-color: #9333ea; }
         .color-orange { background-color: #ffedd5; color: #9a3412; border-left-color: #ea580c; }
 
-        .item-card button.btn-delete {
-            background: none; border: none; color: currentColor; cursor: pointer; font-size: 14px;
-            padding: 0 2px; opacity: 0.7; line-height: 1;
+        .item-actions { display: flex; gap: 3px; align-items: center; margin-left: 6px; flex-shrink: 0; }
+        .item-actions button {
+            background: none; border: none; color: currentColor; cursor: pointer; font-size: 12px;
+            padding: 2px 3px; opacity: 0.7; line-height: 1; border-radius: 3px;
         }
-        .item-card button.btn-delete:hover { opacity: 1; }
+        .item-actions button:hover { opacity: 1; background: rgba(0,0,0,0.05); }
 
         .add-item-box { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .input-row { display: flex; gap: 4px; align-items: center; }
@@ -293,13 +293,9 @@
     </div>
 
     <script>
-        // =========================================================================
-        // 🔑 CONFIGURACIÓN AUTOMÁTICA INTEGRADA DE SUPABASE Y PIN:
-        // =========================================================================
         const SUPABASE_URL = "https://shnwnhbspzcazkikryrx.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_-CWnoRh3OWAVq73bIPBpKw_wCErdvAO";
         const PIN_CORRECTO = "4321";
-        // =========================================================================
 
         const colorPalette = ['blue', 'green', 'yellow', 'red', 'purple', 'orange'];
         let selectedColors = {};
@@ -307,7 +303,6 @@
         let supabaseClient = null;
         let isSupabaseActive = false;
 
-        // Comprobar si ya inició sesión previamente en este navegador
         window.onload = function() {
             if (localStorage.getItem('bmc_authenticated') === 'true') {
                 unlockApp();
@@ -319,7 +314,7 @@
             const errorEl = document.getElementById('error-msg');
 
             if (inputVal === PIN_CORRECTO) {
-                localStorage.setItem('bmc_authenticated', 'true'); // Recordar sesión
+                localStorage.setItem('bmc_authenticated', 'true');
                 unlockApp();
             } else {
                 errorEl.style.display = 'block';
@@ -341,7 +336,7 @@
         }
 
         function logout() {
-            localStorage.removeItem('bmc_authenticated'); // Borrar sesión al presionar Salir
+            localStorage.removeItem('bmc_authenticated');
             location.reload();
         }
 
@@ -410,7 +405,10 @@
             if (!listEl) return;
             listEl.innerHTML = '';
             
-            (canvasData[blockId] || []).forEach((item, index) => {
+            const list = canvasData[blockId] || [];
+            const total = list.length;
+
+            list.forEach((item, index) => {
                 const text = typeof item === 'string' ? item : item.text;
                 const color = typeof item === 'string' ? 'blue' : (item.color || 'blue');
 
@@ -418,9 +416,11 @@
                 card.className = `item-card color-${color}`;
                 card.innerHTML = `
                     <span>${escapeHtml(text)}</span>
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <button class="btn-delete" onclick="editItem('${blockId}', ${index})" title="Editar">✏️</button>
-                        <button class="btn-delete" onclick="removeItem('${blockId}', ${index})" title="Eliminar">&times;</button>
+                    <div class="item-actions">
+                        <button onclick="moveItem('${blockId}', ${index}, -1)" title="Subir" ${index === 0 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬆️</button>
+                        <button onclick="moveItem('${blockId}', ${index}, 1)" title="Bajar" ${index === total - 1 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬇️</button>
+                        <button onclick="editItem('${blockId}', ${index})" title="Editar">✏️</button>
+                        <button onclick="removeItem('${blockId}', ${index})" title="Eliminar">&times;</button>
                     </div>
                 `;
                 listEl.appendChild(card);
@@ -470,6 +470,20 @@
                 }
                 syncData();
             }
+        }
+
+        function moveItem(blockId, index, direction) {
+            const list = canvasData[blockId];
+            if (!list) return;
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= list.length) return;
+
+            // Intercambiar elementos
+            const temp = list[index];
+            list[index] = list[newIndex];
+            list[newIndex] = temp;
+
+            syncData();
         }
 
         function handleEnter(e, blockId) {
