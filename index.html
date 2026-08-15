@@ -73,6 +73,38 @@
 
         .header h1 { font-size: 20px; color: var(--header-bg); display: flex; align-items: center; gap: 10px; }
 
+        /* Nombre del Proyecto Centrado */
+        .header-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            padding: 0 15px;
+            min-width: 200px;
+        }
+        .project-name-input {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--header-bg);
+            border: 1px dashed transparent;
+            background: transparent;
+            text-align: center;
+            padding: 6px 12px;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 400px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .project-name-input:hover {
+            border-color: var(--border-color);
+            background: #f8fafc;
+        }
+        .project-name-input:focus {
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
         .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; justify-content: flex-start; }
         @media (min-width: 768px) { .controls { width: auto; justify-content: flex-end; } }
 
@@ -211,7 +243,7 @@
     <div id="app-content">
         <div class="header">
             <div class="header-left">
-                <!-- CUADRO PARA EL LOGO -->
+                <!-- LOGO DE LA EMPRESA -->
                 <div class="logo-container" onclick="document.getElementById('logo-file-input').click()" title="Haz clic para subir tu logo">
                     <div id="logo-preview-area" class="logo-placeholder">Logo</div>
                 </div>
@@ -221,6 +253,11 @@
                     <h1>Business Model Canvas</h1>
                     <span id="connection-status" class="status-badge disconnected">Conectando a Supabase...</span>
                 </div>
+            </div>
+
+            <!-- NOMBRE DEL PROYECTO CENTRADO -->
+            <div class="header-center">
+                <input type="text" id="project-name-input" class="project-name-input" placeholder="Nombre del Proyecto..." oninput="handleProjectNameChange()">
             </div>
             
             <div class="controls">
@@ -352,7 +389,10 @@
 
         const colorPalette = ['blue', 'green', 'yellow', 'red', 'purple', 'orange'];
         let selectedColors = {};
-        let canvasData = { kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] };
+        let canvasData = { 
+            projectName: "", 
+            kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
+        };
         let supabaseClient = null;
         let isSupabaseActive = false;
 
@@ -420,6 +460,13 @@
             }
         }
 
+        // --- MANEJO DE NOMBRE DE PROYECTO ---
+        function handleProjectNameChange() {
+            const val = document.getElementById('project-name-input').value;
+            canvasData.projectName = val;
+            syncData();
+        }
+
         function initSupabaseAuto() {
             const statusBadge = document.getElementById('connection-status');
 
@@ -448,6 +495,7 @@
 
         function initColorPickers() {
             Object.keys(canvasData).forEach(blockId => {
+                if (blockId === 'projectName') return;
                 selectedColors[blockId] = 'blue';
                 const container = document.getElementById('colors-' + blockId);
                 if (!container) return;
@@ -476,7 +524,18 @@
         function loadLocalData() {
             const saved = localStorage.getItem('bmc_colors_data');
             if (saved) {
-                try { canvasData = JSON.parse(saved); } catch(e){}
+                try { 
+                    const parsed = JSON.parse(saved);
+                    // Asegurar compatibilidad si viene con estructura vieja o nueva
+                    if(Array.isArray(parsed)) {
+                        canvasData.kp = parsed.kp || []; // por si acaso
+                    } else {
+                        canvasData = parsed;
+                    }
+                } catch(e){}
+            }
+            if(canvasData.projectName) {
+                document.getElementById('project-name-input').value = canvasData.projectName;
             }
         }
 
@@ -508,7 +567,15 @@
         }
 
         function renderAll() {
-            Object.keys(canvasData).forEach(blockId => renderBlock(blockId));
+            Object.keys(canvasData).forEach(blockId => {
+                if (blockId !== 'projectName') renderBlock(blockId);
+            });
+            if (canvasData.projectName !== undefined) {
+                const inputEl = document.getElementById('project-name-input');
+                if (document.activeElement !== inputEl) {
+                    inputEl.value = canvasData.projectName;
+                }
+            }
         }
 
         function escapeHtml(text) {
@@ -570,7 +637,6 @@
         }
 
         function syncData() {
-            renderAll();
             saveLocalData();
             if (isSupabaseActive && supabaseClient) {
                 supabaseClient.channel('canvas_room').send({
@@ -598,10 +664,6 @@
                 pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
                 pdf.save('business-model-canvas.pdf');
             });
-        }
-    </script>
-</body>
-</html>
         }
     </script>
 </body>
