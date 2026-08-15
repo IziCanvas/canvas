@@ -3,43 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Canvas Sticky Note Component</title>
+  <title>Lean Canvas</title>
   <style>
-    /* Estilos generales del contenedor del Canvas */
-    body {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f4f5f7;
-      padding: 20px;
     }
 
-    /* Columna del Canvas (Ejemplo: Segmentos de Clientes) */
-    .canvas-column {
-      width: 320px;
-      background-color: #e8f5e9; /* Fondo pastel tipo Canvas */
-      border: 1px solid #c8e6c9;
+    body {
+      background-color: #f4f6f8;
+      padding: 16px;
+      color: #333;
+    }
+
+    .canvas-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Grilla Superior (5 columnas) */
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      min-height: 520px;
+    }
+
+    /* Grilla Inferior (2 columnas) */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      min-height: 200px;
+    }
+
+    /* Columnas divididas verticalmente (Actividades/Recursos y Relaciones/Canales) */
+    .stacked-column {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Bloque / Caja del Canvas */
+    .canvas-block {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
       padding: 12px;
+      display: flex;
+      flex-direction: flex-col;
+      flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      position: relative;
     }
 
-    .column-title {
-      font-weight: bold;
-      font-size: 14px;
+    /* Resaltado del bloque activo (como en la captura) */
+    .canvas-block.highlight {
+      background-color: #e8f5e9;
+      border-color: #a5d6a7;
+    }
+
+    .block-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #212529;
       margin-bottom: 12px;
-      color: #2e7d32;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    /* Tarjeta / Nota Sticky */
+    .cards-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      overflow-y: auto;
+    }
+
+    /* Tarjetas / Sticky Notes */
     .canvas-card {
       background: #ffffff;
       border: 1px solid #dcdcdc;
       border-radius: 6px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      position: relative;
+      padding: 8px 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
-    /* Encabezado: Texto principal e íconos superiores (✏️ y ✕) */
     .card-header {
       display: flex;
       justify-content: space-between;
@@ -48,32 +104,30 @@
     }
 
     .card-text {
-      font-size: 13px;
-      color: #333333;
+      font-size: 12px;
+      color: #333;
       line-height: 1.4;
-      flex-grow: 1;
+      word-break: break-word;
     }
 
     .card-top-icons {
       display: flex;
       gap: 4px;
+      flex-shrink: 0;
     }
 
-    /* Estilos de botones de icono */
     .icon-btn {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 2px 4px;
-      font-size: 13px;
-      color: #555555;
-      line-height: 1;
+      padding: 1px 3px;
+      font-size: 12px;
+      color: #666;
       border-radius: 3px;
-      transition: background-color 0.2s ease;
     }
 
     .icon-btn:hover {
-      background-color: #f0f0f0;
+      background-color: #eeeeee;
     }
 
     .icon-delete {
@@ -81,11 +135,10 @@
       font-weight: bold;
     }
 
-    /* Pie de tarjeta: Flechas negras de reordenamiento */
     .card-footer {
       display: flex;
       justify-content: flex-end;
-      margin-top: 8px;
+      margin-top: 6px;
       gap: 2px;
     }
 
@@ -93,59 +146,264 @@
       background: none;
       border: none;
       color: #000000;
-      font-size: 11px;
+      font-size: 10px;
       cursor: pointer;
-      padding: 2px 4px;
-      line-height: 1;
+      padding: 1px 4px;
       border-radius: 3px;
-      transition: background-color 0.2s ease;
     }
 
     .arrow-btn:hover {
       background-color: #e0e0e0;
     }
+
+    /* Área inferior de añadir elemento dentro del bloque */
+    .add-item-box {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .input-group input {
+      flex-grow: 1;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .input-group input:focus {
+      border-color: #1976d2;
+    }
+
+    .btn-add {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 0 10px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    /* Puntos de color para categorizar */
+    .color-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .dot-blue { background-color: #2196f3; }
+    .dot-orange { background-color: #ff9800; }
+    .dot-red { background-color: #f44336; }
+    .dot-purple { background-color: #9c27b0; }
+    .dot-green { background-color: #4caf50; }
+    .dot-yellow { background-color: #ffeb3b; }
   </style>
 </head>
 <body>
 
-  <!-- COLUMNA CANVAS -->
-  <div class="canvas-column">
-    <div class="column-title">Segmentos de Clientes</div>
+  <div class="canvas-container">
+    
+    <!-- PARTE SUPERIOR (5 Columnas) -->
+    <div class="top-grid">
 
-    <!-- TARJETA 1 -->
-    <div class="canvas-card">
-      <div class="card-header">
-        <div class="card-text">
-          Jugadores de tenis y pádel de nivel intermedio que buscan organizar partidos.
+      <!-- 1. Socios Clave -->
+      <div class="canvas-block">
+        <div class="block-title">Socios Clave 🤝</div>
+        <div class="cards-container">
+          <!-- Ejemplo de tarjeta -->
+          <div class="canvas-card">
+            <div class="card-header">
+              <div class="card-text">Clubes deportivos y federaciones.</div>
+              <div class="card-top-icons">
+                <button class="icon-btn" title="Editar">✏️</button>
+                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="arrow-btn" title="Subir">▲</button>
+              <button class="arrow-btn" title="Bajar">▼</button>
+            </div>
+          </div>
         </div>
-        <div class="card-top-icons">
-          <button class="icon-btn" title="Editar">✏️</button>
-          <button class="icon-btn icon-delete" title="Eliminar">✕</button>
+        <div class="add-item-box">
+          <div class="input-group">
+            <input type="text" placeholder="Agregar socio...">
+            <button class="btn-add">+</button>
+          </div>
+          <div class="color-dots">
+            <span class="dot dot-blue"></span>
+            <span class="dot dot-orange"></span>
+            <span class="dot dot-red"></span>
+            <span class="dot dot-purple"></span>
+            <span class="dot dot-green"></span>
+            <span class="dot dot-yellow"></span>
+          </div>
         </div>
       </div>
-      <div class="card-footer">
-        <button class="arrow-btn" title="Subir">▲</button>
-        <button class="arrow-btn" title="Bajar">▼</button>
+
+      <!-- 2. Actividades y Recursos Clave -->
+      <div class="stacked-column">
+        <div class="canvas-block">
+          <div class="block-title">Actividades Clave ⚙️</div>
+          <div class="cards-container"></div>
+          <div class="add-item-box">
+            <div class="input-group">
+              <input type="text" placeholder="Agregar actividad...">
+              <button class="btn-add">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-block">
+          <div class="block-title">Recursos Clave 💡</div>
+          <div class="cards-container"></div>
+          <div class="add-item-box">
+            <div class="input-group">
+              <input type="text" placeholder="Agregar recurso...">
+              <button class="btn-add">+</button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- 3. Propuesta de Valor -->
+      <div class="canvas-block">
+        <div class="block-title">Propuesta de Valor 🎁</div>
+        <div class="cards-container"></div>
+        <div class="add-item-box">
+          <div class="input-group">
+            <input type="text" placeholder="Agregar propuesta...">
+            <button class="btn-add">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Relaciones con Clientes y Canales -->
+      <div class="stacked-column">
+        <div class="canvas-block">
+          <div class="block-title">Relaciones con Clientes ❤️</div>
+          <div class="cards-container"></div>
+          <div class="add-item-box">
+            <div class="input-group">
+              <input type="text" placeholder="Agregar relación...">
+              <button class="btn-add">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-block">
+          <div class="block-title">Canales 📣</div>
+          <div class="cards-container"></div>
+          <div class="add-item-box">
+            <div class="input-group">
+              <input type="text" placeholder="Agregar canal...">
+              <button class="btn-add">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Segmentos de Clientes (Destacado como en tu foto) -->
+      <div class="canvas-block highlight">
+        <div class="block-title">Segmentos de Clientes 🎯</div>
+        <div class="cards-container">
+
+          <div class="canvas-card">
+            <div class="card-header">
+              <div class="card-text">Jugadores de tenis y pádel de nivel intermedio.</div>
+              <div class="card-top-icons">
+                <button class="icon-btn" title="Editar">✏️</button>
+                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="arrow-btn" title="Subir">▲</button>
+              <button class="arrow-btn" title="Bajar">▼</button>
+            </div>
+          </div>
+
+          <div class="canvas-card">
+            <div class="card-header">
+              <div class="card-text">Clubes deportivos que gestionan rankings.</div>
+              <div class="card-top-icons">
+                <button class="icon-btn" title="Editar">✏️</button>
+                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="arrow-btn" title="Subir">▲</button>
+              <button class="arrow-btn" title="Bajar">▼</button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="add-item-box">
+          <div class="input-group">
+            <input type="text" placeholder="Agregar segmento...">
+            <button class="btn-add">+</button>
+          </div>
+          <div class="color-dots">
+            <span class="dot dot-blue"></span>
+            <span class="dot dot-orange"></span>
+            <span class="dot dot-red"></span>
+            <span class="dot dot-purple"></span>
+            <span class="dot dot-green"></span>
+            <span class="dot dot-yellow"></span>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- TARJETA 2 -->
-    <div class="canvas-card">
-      <div class="card-header">
-        <div class="card-text">
-          Clubes deportivos que requieren gestionar tablas de ranking automáticamente.
-        </div>
-        <div class="card-top-icons">
-          <button class="icon-btn" title="Editar">✏️</button>
-          <button class="icon-btn icon-delete" title="Eliminar">✕</button>
+    <!-- PARTE INFERIOR (2 Columnas) -->
+    <div class="bottom-grid">
+
+      <!-- 6. Estructura de Costes -->
+      <div class="canvas-block">
+        <div class="block-title">Estructura de Costes 📊</div>
+        <div class="cards-container"></div>
+        <div class="add-item-box">
+          <div class="input-group">
+            <input type="text" placeholder="Agregar coste...">
+            <button class="btn-add">+</button>
+          </div>
         </div>
       </div>
-      <div class="card-footer">
-        <button class="arrow-btn" title="Subir">▲</button>
-        <button class="arrow-btn" title="Bajar">▼</button>
+
+      <!-- 7. Fuentes de Ingresos -->
+      <div class="canvas-block">
+        <div class="block-title">Fuentes de Ingresos 💰</div>
+        <div class="cards-container"></div>
+        <div class="add-item-box">
+          <div class="input-group">
+            <input type="text" placeholder="Agregar fuente...">
+            <button class="btn-add">+</button>
+          </div>
+        </div>
       </div>
+
     </div>
 
+  </div>
+
+</body>
+</html>
   </div>
 
 </body>
