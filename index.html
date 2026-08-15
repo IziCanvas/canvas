@@ -404,7 +404,7 @@
             }
         }
 
-        function renderBlock(blockId) {
+function renderBlock(blockId) {
             const listEl = document.getElementById('list-' + blockId);
             if (!listEl) return;
             listEl.innerHTML = '';
@@ -417,7 +417,10 @@
                 card.className = `item-card color-${color}`;
                 card.innerHTML = `
                     <span>${escapeHtml(text)}</span>
-                    <button class="btn-delete" onclick="removeItem('${blockId}', ${index})">&times;</button>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button class="btn-delete" onclick="editItem('${blockId}', ${index})" title="Editar">✏️</button>
+                        <button class="btn-delete" onclick="removeItem('${blockId}', ${index})" title="Eliminar">&times;</button>
+                    </div>
                 `;
                 listEl.appendChild(card);
             });
@@ -446,9 +449,17 @@
             syncData();
         }
 
-        function removeItem(blockId, index) {
-            if (canvasData[blockId]) {
-                canvasData[blockId].splice(index, 1);
+      function editItem(blockId, index) {
+            const currentItem = canvasData[blockId][index];
+            const currentText = typeof currentItem === 'string' ? currentItem : currentItem.text;
+            
+            const newText = prompt("Editar nota:", currentText);
+            if (newText !== null && newText.trim() !== "") {
+                if (typeof currentItem === 'string') {
+                    canvasData[blockId][index] = { text: newText.trim(), color: 'blue' };
+                } else {
+                    canvasData[blockId][index].text = newText.trim();
+                }
                 syncData();
             }
         }
