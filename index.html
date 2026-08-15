@@ -79,15 +79,17 @@
         }
 
         .canvas-grid { display: flex; flex-direction: column; gap: 12px; }
+        
         .canvas-block {
             border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;
             background-color: #f8fafc; display: flex; flex-direction: column; position: relative; min-height: 200px;
+            overflow: hidden;
         }
 
         @media (min-width: 900px) {
             .canvas-grid {
                 display: grid; grid-template-columns: repeat(5, 1fr);
-                grid-template-rows: repeat(2, 290px) 190px; gap: 8px;
+                grid-template-rows: repeat(2, minmax(290px, auto)) minmax(190px, auto); gap: 8px;
             }
             .block-kp { grid-column: 1; grid-row: 1 / 3; }
             .block-ka { grid-column: 2; grid-row: 1; }
@@ -98,26 +100,41 @@
             .block-cs { grid-column: 5; grid-row: 1 / 3; }
             .block-cost { grid-column: 1 / 3; grid-row: 3; }
             .block-rev { grid-column: 3 / 6; grid-row: 3; }
-            .canvas-block { min-height: auto; }
+            .canvas-block { min-height: 0; }
         }
 
         .block-title {
             font-size: 13px; font-weight: 700; color: var(--header-bg); margin-bottom: 8px;
             display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;
+            flex-shrink: 0;
         }
 
-        .items-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; max-height: 250px; }
+        .items-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+            padding-right: 4px; 
+            min-height: 0; 
+            max-height: 250px;
+        }
         @media (min-width: 900px) { .items-list { max-height: none; } }
 
-        /* Cards de Notas */
         .item-card {
             padding: 6px 8px; border-radius: 5px; font-size: 12px; display: flex;
             justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-            word-break: break-word; border-left: 5px solid rgba(0,0,0,0.25); font-weight: 500;
-            min-height: 48px; /* Garantiza suficiente espacio vertical para justificar */
+            border-left: 5px solid rgba(0,0,0,0.25); font-weight: 500;
+            min-height: 48px; flex-shrink: 0;
         }
 
-        .item-card span { flex: 1; padding-right: 6px; }
+        .item-card span { 
+            flex: 1; 
+            padding-right: 6px; 
+            overflow-wrap: anywhere; 
+            word-break: break-word; 
+            white-space: normal;
+        }
 
         .color-blue   { background-color: #dbeafe; color: #1e40af; border-left-color: #2563eb; }
         .color-green  { background-color: #dcfce7; color: #166534; border-left-color: #16a34a; }
@@ -126,19 +143,22 @@
         .color-purple { background-color: #f3e8ff; color: #6b21a8; border-left-color: #9333ea; }
         .color-orange { background-color: #ffedd5; color: #9a3412; border-left-color: #ea580c; }
 
-        /* Matriz de botones 2x2 ajustada con justificación vertical */
         .item-actions {
             display: grid; grid-template-columns: repeat(2, auto); gap: 2px;
             align-self: stretch; align-content: space-between;
             margin-left: 4px; flex-shrink: 0;
         }
         .item-actions button {
-            background: none; border: none; color: currentColor; cursor: pointer; font-size: 11px;
-            padding: 1px 2px; opacity: 0.7; line-height: 1; border-radius: 3px;
+            background: none; border: none; color: #000000; cursor: pointer; font-size: 11px;
+            padding: 1px 3px; opacity: 0.8; line-height: 1; border-radius: 3px; font-weight: bold;
         }
-        .item-actions button:hover { opacity: 1; background: rgba(0,0,0,0.08); }
+        .item-actions button:hover { opacity: 1; background: rgba(0,0,0,0.1); }
 
-        .add-item-box { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .add-item-box { 
+            display: flex; flex-direction: column; gap: 6px; margin-top: 6px; 
+            background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; 
+            flex-shrink: 0;
+        }
         .input-row { display: flex; gap: 4px; align-items: center; }
         .add-item-box input { flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; outline: none; }
 
@@ -427,8 +447,8 @@
                     <div class="item-actions">
                         <button onclick="editItem('${blockId}', ${index})" title="Editar">✏️</button>
                         <button onclick="removeItem('${blockId}', ${index})" title="Eliminar">&times;</button>
-                        <button onclick="moveItem('${blockId}', ${index}, -1)" title="Subir" ${index === 0 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬆️</button>
-                        <button onclick="moveItem('${blockId}', ${index}, 1)" title="Bajar" ${index === total - 1 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬇️</button>
+                        <button onclick="moveItem('${blockId}', ${index}, -1)" title="Subir" ${index === 0 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>▲</button>
+                        <button onclick="moveItem('${blockId}', ${index}, 1)" title="Bajar" ${index === total - 1 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>▼</button>
                     </div>
                 `;
                 listEl.appendChild(card);
@@ -528,9 +548,5 @@
             });
         }
     </script>
-</body>
-</html>
-  </div>
-
 </body>
 </html>
