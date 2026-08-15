@@ -1,407 +1,533 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lean Canvas</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Model Canvas</title>
 
-    body {
-      background-color: #f4f6f8;
-      padding: 16px;
-      color: #333;
-    }
+    <!-- HTML2Canvas y jsPDF para exportar -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    .canvas-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    /* Grilla Superior (5 columnas) */
-    .top-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-      min-height: 520px;
-    }
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #cbd5e1;
+            --header-bg: #0f172a;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --accent: #059669;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+        }
 
-    /* Grilla Inferior (2 columnas) */
-    .bottom-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      min-height: 200px;
-    }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); padding: 15px; }
 
-    /* Columnas divididas verticalmente (Actividades/Recursos y Relaciones/Canales) */
-    .stacked-column {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+        /* --- PANTALLA DE BLOQUEO POR PIN --- */
+        #pin-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.98); display: flex; justify-content: center;
+            align-items: center; z-index: 9999; padding: 20px;
+        }
+        .pin-box {
+            background: white; padding: 30px; border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 350px; text-align: center;
+        }
+        .pin-box h2 { color: var(--header-bg); margin-bottom: 8px; font-size: 20px; }
+        .pin-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+        .pin-box input {
+            width: 100%; padding: 12px; border: 2px solid var(--border-color);
+            border-radius: 6px; font-size: 22px; margin-bottom: 15px; outline: none; text-align: center; letter-spacing: 6px;
+        }
+        .pin-box button { width: 100%; padding: 12px; font-size: 15px; justify-content: center; }
+        .error-msg { color: #dc2626; font-size: 13px; margin-top: 10px; display: none; font-weight: 600; }
 
-    /* Bloque / Caja del Canvas */
-    .canvas-block {
-      background: #ffffff;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: flex-col;
-      flex: 1;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-      position: relative;
-    }
+        /* --- CONTENIDO PRINCIPAL --- */
+        #app-content { display: none; }
 
-    /* Resaltado del bloque activo (como en la captura) */
-    .canvas-block.highlight {
-      background-color: #e8f5e9;
-      border-color: #a5d6a7;
-    }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: var(--card-bg); padding: 12px 20px; border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 15px; flex-wrap: wrap; gap: 10px;
+        }
+        .header h1 { font-size: 20px; color: var(--header-bg); display: flex; align-items: center; gap: 10px; }
 
-    .block-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #212529;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+        .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; justify-content: flex-start; }
+        @media (min-width: 768px) { .controls { width: auto; justify-content: flex-end; } }
 
-    .cards-container {
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 12px;
-      overflow-y: auto;
-    }
+        button {
+            padding: 8px 14px; border: none; border-radius: 6px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 6px; font-size: 13px;
+        }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-success { background-color: var(--accent); color: white; }
+        .btn-success:hover { background-color: #047857; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
+        .btn-outline:hover { background-color: #f1f5f9; }
 
-    /* Tarjetas / Sticky Notes */
-    .canvas-card {
-      background: #ffffff;
-      border: 1px solid #dcdcdc;
-      border-radius: 6px;
-      padding: 8px 10px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
+        /* Canvas Grid Layout */
+        .canvas-container {
+            background-color: #ffffff; border-radius: 8px; padding: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid var(--border-color);
+            width: 100%; max-width: 1450px; margin: 0 auto; overflow-x: auto;
+        }
 
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-    }
+        .canvas-grid { display: flex; flex-direction: column; gap: 12px; }
+        .canvas-block {
+            border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;
+            background-color: #f8fafc; display: flex; flex-direction: column; position: relative; min-height: 200px;
+        }
 
-    .card-text {
-      font-size: 12px;
-      color: #333;
-      line-height: 1.4;
-      word-break: break-word;
-    }
+        @media (min-width: 900px) {
+            .canvas-grid {
+                display: grid; grid-template-columns: repeat(5, 1fr);
+                grid-template-rows: repeat(2, 290px) 190px; gap: 8px;
+            }
+            .block-kp { grid-column: 1; grid-row: 1 / 3; }
+            .block-ka { grid-column: 2; grid-row: 1; }
+            .block-kr { grid-column: 2; grid-row: 2; }
+            .block-vp { grid-column: 3; grid-row: 1 / 3; }
+            .block-cr { grid-column: 4; grid-row: 1; }
+            .block-ch { grid-column: 4; grid-row: 2; }
+            .block-cs { grid-column: 5; grid-row: 1 / 3; }
+            .block-cost { grid-column: 1 / 3; grid-row: 3; }
+            .block-rev { grid-column: 3 / 6; grid-row: 3; }
+            .canvas-block { min-height: auto; }
+        }
 
-    .card-top-icons {
-      display: flex;
-      gap: 4px;
-      flex-shrink: 0;
-    }
+        .block-title {
+            font-size: 13px; font-weight: 700; color: var(--header-bg); margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;
+        }
 
-    .icon-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 1px 3px;
-      font-size: 12px;
-      color: #666;
-      border-radius: 3px;
-    }
+        .items-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; max-height: 250px; }
+        @media (min-width: 900px) { .items-list { max-height: none; } }
 
-    .icon-btn:hover {
-      background-color: #eeeeee;
-    }
+        /* Cards de Notas */
+        .item-card {
+            padding: 6px 8px; border-radius: 5px; font-size: 12px; display: flex;
+            justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            word-break: break-word; border-left: 5px solid rgba(0,0,0,0.25); font-weight: 500;
+            min-height: 48px; /* Garantiza suficiente espacio vertical para justificar */
+        }
 
-    .icon-delete {
-      color: #d32f2f;
-      font-weight: bold;
-    }
+        .item-card span { flex: 1; padding-right: 6px; }
 
-    .card-footer {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 6px;
-      gap: 2px;
-    }
+        .color-blue   { background-color: #dbeafe; color: #1e40af; border-left-color: #2563eb; }
+        .color-green  { background-color: #dcfce7; color: #166534; border-left-color: #16a34a; }
+        .color-yellow { background-color: #fef9c3; color: #854d0e; border-left-color: #ca8a04; }
+        .color-red    { background-color: #fee2e2; color: #991b1b; border-left-color: #dc2626; }
+        .color-purple { background-color: #f3e8ff; color: #6b21a8; border-left-color: #9333ea; }
+        .color-orange { background-color: #ffedd5; color: #9a3412; border-left-color: #ea580c; }
 
-    .arrow-btn {
-      background: none;
-      border: none;
-      color: #000000;
-      font-size: 10px;
-      cursor: pointer;
-      padding: 1px 4px;
-      border-radius: 3px;
-    }
+        /* Matriz de botones 2x2 ajustada con justificación vertical */
+        .item-actions {
+            display: grid; grid-template-columns: repeat(2, auto); gap: 2px;
+            align-self: stretch; align-content: space-between;
+            margin-left: 4px; flex-shrink: 0;
+        }
+        .item-actions button {
+            background: none; border: none; color: currentColor; cursor: pointer; font-size: 11px;
+            padding: 1px 2px; opacity: 0.7; line-height: 1; border-radius: 3px;
+        }
+        .item-actions button:hover { opacity: 1; background: rgba(0,0,0,0.08); }
 
-    .arrow-btn:hover {
-      background-color: #e0e0e0;
-    }
+        .add-item-box { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; background: white; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .input-row { display: flex; gap: 4px; align-items: center; }
+        .add-item-box input { flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; outline: none; }
 
-    /* Área inferior de añadir elemento dentro del bloque */
-    .add-item-box {
-      margin-top: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+        .color-selector { display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 4px; }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; }
+        .color-dot.selected { border-color: #0f172a; transform: scale(1.15); }
 
-    .input-group {
-      display: flex;
-      gap: 6px;
-    }
+        .dot-blue   { background-color: #3b82f6; }
+        .dot-green  { background-color: #22c55e; }
+        .dot-yellow { background-color: #eab308; }
+        .dot-red    { background-color: #ef4444; }
+        .dot-purple { background-color: #a855f7; }
+        .dot-orange { background-color: #f97316; }
 
-    .input-group input {
-      flex-grow: 1;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 12px;
-      outline: none;
-    }
-
-    .input-group input:focus {
-      border-color: #1976d2;
-    }
-
-    .btn-add {
-      background-color: #1976d2;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 0 10px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 14px;
-    }
-
-    /* Puntos de color para categorizar */
-    .color-dots {
-      display: flex;
-      gap: 6px;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .dot-blue { background-color: #2196f3; }
-    .dot-orange { background-color: #ff9800; }
-    .dot-red { background-color: #f44336; }
-    .dot-purple { background-color: #9c27b0; }
-    .dot-green { background-color: #4caf50; }
-    .dot-yellow { background-color: #ffeb3b; }
-  </style>
+        .status-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; }
+        .status-badge.connected { background-color: #d1fae5; color: #065f46; }
+        .status-badge.disconnected { background-color: #fee2e2; color: #991b1b; }
+    </style>
 </head>
 <body>
 
-  <div class="canvas-container">
-    
-    <!-- PARTE SUPERIOR (5 Columnas) -->
-    <div class="top-grid">
-
-      <!-- 1. Socios Clave -->
-      <div class="canvas-block">
-        <div class="block-title">Socios Clave 🤝</div>
-        <div class="cards-container">
-          <!-- Ejemplo de tarjeta -->
-          <div class="canvas-card">
-            <div class="card-header">
-              <div class="card-text">Clubes deportivos y federaciones.</div>
-              <div class="card-top-icons">
-                <button class="icon-btn" title="Editar">✏️</button>
-                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
-              </div>
-            </div>
-            <div class="card-footer">
-              <button class="arrow-btn" title="Subir">▲</button>
-              <button class="arrow-btn" title="Bajar">▼</button>
-            </div>
-          </div>
+    <!-- PANTALLA DE BLOQUEO POR PIN -->
+    <div id="pin-overlay">
+        <div class="pin-box">
+            <h2>🔒 Acceso Requerido</h2>
+            <p>Ingresa el PIN para abrir el Canvas</p>
+            <input type="password" id="pin-input" maxlength="4" placeholder="••••" onkeypress="handlePassEnter(event)">
+            <button class="btn-primary" onclick="verifyPassword()">Ingresar</button>
+            <div id="error-msg" class="error-msg">PIN incorrecto. Inténtalo de nuevo.</div>
         </div>
-        <div class="add-item-box">
-          <div class="input-group">
-            <input type="text" placeholder="Agregar socio...">
-            <button class="btn-add">+</button>
-          </div>
-          <div class="color-dots">
-            <span class="dot dot-blue"></span>
-            <span class="dot dot-orange"></span>
-            <span class="dot dot-red"></span>
-            <span class="dot dot-purple"></span>
-            <span class="dot dot-green"></span>
-            <span class="dot dot-yellow"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. Actividades y Recursos Clave -->
-      <div class="stacked-column">
-        <div class="canvas-block">
-          <div class="block-title">Actividades Clave ⚙️</div>
-          <div class="cards-container"></div>
-          <div class="add-item-box">
-            <div class="input-group">
-              <input type="text" placeholder="Agregar actividad...">
-              <button class="btn-add">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="canvas-block">
-          <div class="block-title">Recursos Clave 💡</div>
-          <div class="cards-container"></div>
-          <div class="add-item-box">
-            <div class="input-group">
-              <input type="text" placeholder="Agregar recurso...">
-              <button class="btn-add">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. Propuesta de Valor -->
-      <div class="canvas-block">
-        <div class="block-title">Propuesta de Valor 🎁</div>
-        <div class="cards-container"></div>
-        <div class="add-item-box">
-          <div class="input-group">
-            <input type="text" placeholder="Agregar propuesta...">
-            <button class="btn-add">+</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. Relaciones con Clientes y Canales -->
-      <div class="stacked-column">
-        <div class="canvas-block">
-          <div class="block-title">Relaciones con Clientes ❤️</div>
-          <div class="cards-container"></div>
-          <div class="add-item-box">
-            <div class="input-group">
-              <input type="text" placeholder="Agregar relación...">
-              <button class="btn-add">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="canvas-block">
-          <div class="block-title">Canales 📣</div>
-          <div class="cards-container"></div>
-          <div class="add-item-box">
-            <div class="input-group">
-              <input type="text" placeholder="Agregar canal...">
-              <button class="btn-add">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. Segmentos de Clientes (Destacado como en tu foto) -->
-      <div class="canvas-block highlight">
-        <div class="block-title">Segmentos de Clientes 🎯</div>
-        <div class="cards-container">
-
-          <div class="canvas-card">
-            <div class="card-header">
-              <div class="card-text">Jugadores de tenis y pádel de nivel intermedio.</div>
-              <div class="card-top-icons">
-                <button class="icon-btn" title="Editar">✏️</button>
-                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
-              </div>
-            </div>
-            <div class="card-footer">
-              <button class="arrow-btn" title="Subir">▲</button>
-              <button class="arrow-btn" title="Bajar">▼</button>
-            </div>
-          </div>
-
-          <div class="canvas-card">
-            <div class="card-header">
-              <div class="card-text">Clubes deportivos que gestionan rankings.</div>
-              <div class="card-top-icons">
-                <button class="icon-btn" title="Editar">✏️</button>
-                <button class="icon-btn icon-delete" title="Eliminar">✕</button>
-              </div>
-            </div>
-            <div class="card-footer">
-              <button class="arrow-btn" title="Subir">▲</button>
-              <button class="arrow-btn" title="Bajar">▼</button>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="add-item-box">
-          <div class="input-group">
-            <input type="text" placeholder="Agregar segmento...">
-            <button class="btn-add">+</button>
-          </div>
-          <div class="color-dots">
-            <span class="dot dot-blue"></span>
-            <span class="dot dot-orange"></span>
-            <span class="dot dot-red"></span>
-            <span class="dot dot-purple"></span>
-            <span class="dot dot-green"></span>
-            <span class="dot dot-yellow"></span>
-          </div>
-        </div>
-      </div>
-
     </div>
 
-    <!-- PARTE INFERIOR (2 Columnas) -->
-    <div class="bottom-grid">
-
-      <!-- 6. Estructura de Costes -->
-      <div class="canvas-block">
-        <div class="block-title">Estructura de Costes 📊</div>
-        <div class="cards-container"></div>
-        <div class="add-item-box">
-          <div class="input-group">
-            <input type="text" placeholder="Agregar coste...">
-            <button class="btn-add">+</button>
-          </div>
+    <!-- APLICACIÓN PRINCIPAL -->
+    <div id="app-content">
+        <div class="header">
+            <div>
+                <h1>Business Model Canvas</h1>
+                <span id="connection-status" class="status-badge disconnected">Conectando a Supabase...</span>
+            </div>
+            <div class="controls">
+                <button class="btn-success" onclick="exportPDF()">📄 PDF</button>
+                <button class="btn-primary" onclick="exportPNG()">🖼️ PNG</button>
+                <button class="btn-outline" onclick="logout()">🔒 Salir</button>
+            </div>
         </div>
-      </div>
 
-      <!-- 7. Fuentes de Ingresos -->
-      <div class="canvas-block">
-        <div class="block-title">Fuentes de Ingresos 💰</div>
-        <div class="cards-container"></div>
-        <div class="add-item-box">
-          <div class="input-group">
-            <input type="text" placeholder="Agregar fuente...">
-            <button class="btn-add">+</button>
-          </div>
+        <div class="canvas-container" id="canvas-to-export">
+            <div class="canvas-grid">
+                
+                <div class="canvas-block block-kp">
+                    <div class="block-title"><span>Socios Clave</span><span>🤝</span></div>
+                    <div class="items-list" id="list-kp"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-kp" placeholder="Agregar socio..." onkeypress="handleEnter(event, 'kp')">
+                            <button class="btn-primary" onclick="addItem('kp')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-kp"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-ka">
+                    <div class="block-title"><span>Actividades Clave</span><span>⚙️</span></div>
+                    <div class="items-list" id="list-ka"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-ka" placeholder="Agregar actividad..." onkeypress="handleEnter(event, 'ka')">
+                            <button class="btn-primary" onclick="addItem('ka')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-ka"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-kr">
+                    <div class="block-title"><span>Recursos Clave</span><span>💡</span></div>
+                    <div class="items-list" id="list-kr"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-kr" placeholder="Agregar recurso..." onkeypress="handleEnter(event, 'kr')">
+                            <button class="btn-primary" onclick="addItem('kr')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-kr"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-vp">
+                    <div class="block-title"><span>Propuesta de Valor</span><span>🎁</span></div>
+                    <div class="items-list" id="list-vp"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-vp" placeholder="Agregar propuesta..." onkeypress="handleEnter(event, 'vp')">
+                            <button class="btn-primary" onclick="addItem('vp')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-vp"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-cr">
+                    <div class="block-title"><span>Relaciones con Clientes</span><span>❤️</span></div>
+                    <div class="items-list" id="list-cr"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-cr" placeholder="Agregar relación..." onkeypress="handleEnter(event, 'cr')">
+                            <button class="btn-primary" onclick="addItem('cr')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-cr"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-ch">
+                    <div class="block-title"><span>Canales</span><span>🚚</span></div>
+                    <div class="items-list" id="list-ch"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-ch" placeholder="Agregar canal..." onkeypress="handleEnter(event, 'ch')">
+                            <button class="btn-primary" onclick="addItem('ch')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-ch"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-cs">
+                    <div class="block-title"><span>Segmentos de Clientes</span><span>👥</span></div>
+                    <div class="items-list" id="list-cs"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-cs" placeholder="Agregar segmento..." onkeypress="handleEnter(event, 'cs')">
+                            <button class="btn-primary" onclick="addItem('cs')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-cs"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-cost">
+                    <div class="block-title"><span>Estructura de Costos</span><span>📊</span></div>
+                    <div class="items-list" id="list-cost"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-cost" placeholder="Agregar costo..." onkeypress="handleEnter(event, 'cost')">
+                            <button class="btn-primary" onclick="addItem('cost')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-cost"></div>
+                    </div>
+                </div>
+
+                <div class="canvas-block block-rev">
+                    <div class="block-title"><span>Fuentes de Ingreso</span><span>💰</span></div>
+                    <div class="items-list" id="list-rev"></div>
+                    <div class="add-item-box">
+                        <div class="input-row">
+                            <input type="text" id="input-rev" placeholder="Agregar fuente..." onkeypress="handleEnter(event, 'rev')">
+                            <button class="btn-primary" onclick="addItem('rev')">+</button>
+                        </div>
+                        <div class="color-selector" id="colors-rev"></div>
+                    </div>
+                </div>
+
+            </div>
         </div>
-      </div>
-
     </div>
 
-  </div>
+    <script>
+        const SUPABASE_URL = "https://shnwnhbspzcazkikryrx.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_-CWnoRh3OWAVq73bIPBpKw_wCErdvAO";
+        const PIN_CORRECTO = "4321";
 
+        const colorPalette = ['blue', 'green', 'yellow', 'red', 'purple', 'orange'];
+        let selectedColors = {};
+        let canvasData = { kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] };
+        let supabaseClient = null;
+        let isSupabaseActive = false;
+
+        window.onload = function() {
+            if (localStorage.getItem('bmc_authenticated') === 'true') {
+                unlockApp();
+            }
+        };
+
+        function verifyPassword() {
+            const inputVal = document.getElementById('pin-input').value;
+            const errorEl = document.getElementById('error-msg');
+
+            if (inputVal === PIN_CORRECTO) {
+                localStorage.setItem('bmc_authenticated', 'true');
+                unlockApp();
+            } else {
+                errorEl.style.display = 'block';
+                document.getElementById('pin-input').value = '';
+            }
+        }
+
+        function handlePassEnter(e) {
+            if (e.key === 'Enter') verifyPassword();
+        }
+
+        function unlockApp() {
+            document.getElementById('pin-overlay').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            initColorPickers();
+            loadLocalData();
+            initSupabaseAuto();
+            renderAll();
+        }
+
+        function logout() {
+            localStorage.removeItem('bmc_authenticated');
+            location.reload();
+        }
+
+        function initSupabaseAuto() {
+            const statusBadge = document.getElementById('connection-status');
+
+            try {
+                if (typeof supabase !== 'undefined') {
+                    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    isSupabaseActive = true;
+                    statusBadge.className = 'status-badge connected';
+                    statusBadge.innerText = '⚡ Realtime Conectado';
+
+                    const channel = supabaseClient.channel('canvas_room');
+                    channel.on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
+                        if (payload) {
+                            canvasData = payload;
+                            renderAll();
+                            saveLocalData();
+                        }
+                    }).subscribe();
+                }
+            } catch(e) {
+                console.error("Error conectando a Supabase:", e);
+                statusBadge.className = 'status-badge disconnected';
+                statusBadge.innerText = '❌ Error de Conexión';
+            }
+        }
+
+        function initColorPickers() {
+            Object.keys(canvasData).forEach(blockId => {
+                selectedColors[blockId] = 'blue';
+                const container = document.getElementById('colors-' + blockId);
+                if (!container) return;
+
+                container.innerHTML = '';
+                colorPalette.forEach(color => {
+                    const dot = document.createElement('div');
+                    dot.className = `color-dot dot-${color} ${color === 'blue' ? 'selected' : ''}`;
+                    dot.onclick = () => selectColor(blockId, color, dot);
+                    container.appendChild(dot);
+                });
+            });
+        }
+
+        function selectColor(blockId, color, dotEl) {
+            selectedColors[blockId] = color;
+            const container = document.getElementById('colors-' + blockId);
+            container.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+            dotEl.classList.add('selected');
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('bmc_colors_data', JSON.stringify(canvasData));
+        }
+
+        function loadLocalData() {
+            const saved = localStorage.getItem('bmc_colors_data');
+            if (saved) {
+                try { canvasData = JSON.parse(saved); } catch(e){}
+            }
+        }
+
+        function renderBlock(blockId) {
+            const listEl = document.getElementById('list-' + blockId);
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            
+            const list = canvasData[blockId] || [];
+            const total = list.length;
+
+            list.forEach((item, index) => {
+                const text = typeof item === 'string' ? item : item.text;
+                const color = typeof item === 'string' ? 'blue' : (item.color || 'blue');
+
+                const card = document.createElement('div');
+                card.className = `item-card color-${color}`;
+                card.innerHTML = `
+                    <span>${escapeHtml(text)}</span>
+                    <div class="item-actions">
+                        <button onclick="editItem('${blockId}', ${index})" title="Editar">✏️</button>
+                        <button onclick="removeItem('${blockId}', ${index})" title="Eliminar">&times;</button>
+                        <button onclick="moveItem('${blockId}', ${index}, -1)" title="Subir" ${index === 0 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬆️</button>
+                        <button onclick="moveItem('${blockId}', ${index}, 1)" title="Bajar" ${index === total - 1 ? 'style="opacity:0.2; cursor:default;" disabled' : ''}>⬇️</button>
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function renderAll() {
+            Object.keys(canvasData).forEach(blockId => renderBlock(blockId));
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function addItem(blockId) {
+            const input = document.getElementById('input-' + blockId);
+            const val = input.value.trim();
+            if (!val) return;
+
+            if (!canvasData[blockId]) canvasData[blockId] = [];
+            const activeColor = selectedColors[blockId] || 'blue';
+            canvasData[blockId].push({ text: val, color: activeColor });
+            
+            input.value = '';
+            syncData();
+        }
+
+        function removeItem(blockId, index) {
+            if (canvasData[blockId]) {
+                canvasData[blockId].splice(index, 1);
+                syncData();
+            }
+        }
+
+        function editItem(blockId, index) {
+            const currentItem = canvasData[blockId][index];
+            const currentText = typeof currentItem === 'string' ? currentItem : currentItem.text;
+            
+            const newText = prompt("Editar nota:", currentText);
+            if (newText !== null && newText.trim() !== "") {
+                if (typeof currentItem === 'string') {
+                    canvasData[blockId][index] = { text: newText.trim(), color: 'blue' };
+                } else {
+                    canvasData[blockId][index].text = newText.trim();
+                }
+                syncData();
+            }
+        }
+
+        function moveItem(blockId, index, direction) {
+            const list = canvasData[blockId];
+            if (!list) return;
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= list.length) return;
+
+            const temp = list[index];
+            list[index] = list[newIndex];
+            list[newIndex] = temp;
+
+            syncData();
+        }
+
+        function handleEnter(e, blockId) {
+            if (e.key === 'Enter') addItem(blockId);
+        }
+
+        function syncData() {
+            renderAll();
+            saveLocalData();
+            if (isSupabaseActive && supabaseClient) {
+                supabaseClient.channel('canvas_room').send({
+                    type: 'broadcast', event: 'canvas_update', payload: canvasData
+                });
+            }
+        }
+
+        function exportPNG() {
+            html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'business-model-canvas.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        function exportPDF() {
+            html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('landscape', 'pt', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
+                pdf.save('business-model-canvas.pdf');
+            });
+        }
+    </script>
 </body>
 </html>
   </div>
