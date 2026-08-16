@@ -609,12 +609,18 @@
             canvasData[blockId].push({ text: val, color: activeColor });
             
             input.value = '';
+            
+            // CORRECCIÓN: Renderizar inmediatamente en pantalla
+            renderAll();
             syncData();
         }
 
         function removeItem(blockId, index) {
             if (canvasData[blockId]) {
                 canvasData[blockId].splice(index, 1);
+                
+                // CORRECCIÓN: Renderizar inmediatamente en pantalla
+                renderAll();
                 syncData();
             }
         }
@@ -630,6 +636,9 @@
                 } else {
                     canvasData[blockId][index].text = newText.trim();
                 }
+                
+                // CORRECCIÓN: Renderizar inmediatamente en pantalla
+                renderAll();
                 syncData();
             }
         }
@@ -644,6 +653,8 @@
             list[index] = list[newIndex];
             list[newIndex] = temp;
 
+            // CORRECCIÓN: Renderizar inmediatamente en pantalla
+            renderAll();
             syncData();
         }
 
