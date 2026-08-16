@@ -403,6 +403,7 @@
             kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
         };
         let supabaseClient = null;
+        let canvasChannel = null;
         let isSupabaseActive = false;
 
         window.onload = function() {
@@ -482,18 +483,26 @@
             try {
                 if (typeof supabase !== 'undefined') {
                     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                    isSupabaseActive = true;
-                    statusBadge.className = 'status-badge connected';
-                    statusBadge.innerText = '⚡ Realtime Conectado';
+                    
+                    canvasChannel = supabaseClient.channel('canvas_room', {
+                        config: { broadcast: { self: false } }
+                    });
 
-                    const channel = supabaseClient.channel('canvas_room');
-                    channel.on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
-                        if (payload) {
-                            canvasData = payload;
-                            renderAll();
-                            saveLocalData();
-                        }
-                    }).subscribe();
+                    canvasChannel
+                        .on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
+                            if (payload) {
+                                canvasData = payload;
+                                renderAll();
+                                saveLocalData();
+                            }
+                        })
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') {
+                                isSupabaseActive = true;
+                                statusBadge.className = 'status-badge connected';
+                                statusBadge.innerText = '⚡ Realtime Conectado';
+                            }
+                        });
                 }
             } catch(e) {
                 console.error("Error conectando a Supabase:", e);
@@ -535,14 +544,12 @@
             if (saved) {
                 try { 
                     const parsed = JSON.parse(saved);
-                    if(Array.isArray(parsed)) {
-                        canvasData.kp = parsed.kp || [];
-                    } else {
-                        canvasData = parsed;
+                    if (parsed && !Array.isArray(parsed)) {
+                        canvasData = { ...canvasData, ...parsed };
                     }
                 } catch(e){}
             }
-            if(canvasData.projectName) {
+            if (canvasData.projectName) {
                 document.getElementById('project-name-input').value = canvasData.projectName;
             }
         }
@@ -646,9 +653,11 @@
 
         function syncData() {
             saveLocalData();
-            if (isSupabaseActive && supabaseClient) {
-                supabaseClient.channel('canvas_room').send({
-                    type: 'broadcast', event: 'canvas_update', payload: canvasData
+            if (isSupabaseActive && canvasChannel) {
+                canvasChannel.send({
+                    type: 'broadcast', 
+                    event: 'canvas_update', 
+                    payload: canvasData
                 });
             }
         }
