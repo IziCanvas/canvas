@@ -65,7 +65,8 @@
         body.is-exporting .item-actions,
         body.is-exporting .color-selector,
         body.is-exporting .controls,
-        body.is-exporting #connection-status {
+        body.is-exporting #connection-status,
+        body.is-exporting #project-selector-container {
             display: none !important;
         }
 
@@ -87,25 +88,27 @@
             flex: 1;
             display: flex;
             justify-content: center;
+            align-items: center;
+            gap: 10px;
             padding: 0 15px;
-            min-width: 200px;
+            min-width: 250px;
         }
         .project-name-input {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--header-bg);
-            border: 1px dashed transparent;
+            border: 1px dashed var(--border-color);
             background: transparent;
             text-align: center;
             padding: 6px 12px;
             border-radius: 6px;
             width: 100%;
-            max-width: 400px;
+            max-width: 300px;
             outline: none;
             transition: all 0.2s;
         }
         .project-name-input:hover {
-            border-color: var(--border-color);
+            border-color: var(--primary);
             background: #f8fafc;
         }
         .project-name-input:focus {
@@ -127,6 +130,22 @@
         .btn-success:hover { background-color: #047857; }
         .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
         .btn-outline:hover { background-color: #f1f5f9; }
+
+        /* Selector de proyectos */
+        #project-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #project-select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: white;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+        }
 
         /* Canvas Grid Layout */
         .canvas-container {
@@ -264,9 +283,15 @@
                 </div>
             </div>
 
-            <!-- NOMBRE DEL PROYECTO CENTRADO -->
+            <!-- NOMBRE DEL PROYECTO Y SELECTOR -->
             <div class="header-center">
                 <input type="text" id="project-name-input" class="project-name-input" placeholder="Nombre del Proyecto..." oninput="handleProjectNameChange()">
+                <div id="project-selector-container">
+                    <select id="project-select" onchange="switchProject(this.value)" title="Cambiar de Proyecto">
+                        <option value="">Cargando proyectos...</option>
+                    </select>
+                    <button class="btn-primary" onclick="createNewProject()" title="Nuevo Proyecto">＋ Nuevo</button>
+                </div>
             </div>
             
             <div class="controls">
@@ -398,8 +423,9 @@
 
         const colorPalette = ['blue', 'green', 'yellow', 'red', 'purple', 'orange'];
         let selectedColors = {};
+        let currentProjectId = null;
         let canvasData = { 
-            projectName: "", 
+            projectName: "Mi Proyecto Canvas", 
             kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
         };
         let supabaseClient = null;
@@ -433,10 +459,8 @@
             document.getElementById('pin-overlay').style.display = 'none';
             document.getElementById('app-content').style.display = 'block';
             initColorPickers();
-            loadLocalData();
             loadSavedLogo();
             initSupabaseAuto();
-            renderAll();
         }
 
         function logout() {
@@ -470,37 +494,33 @@
             }
         }
 
-        // --- MANEJO DE NOMBRE DE PROYECTO ---
-        function handleProjectNameChange() {
-            const val = document.getElementById('project-name-input').value;
-            canvasData.projectName = val;
-            syncData();
-        }
-
-        function initSupabaseAuto() {
+        // --- CONEXIÓN Y PERSISTENCIA SUPABASE ---
+        async function initSupabaseAuto() {
             const statusBadge = document.getElementById('connection-status');
 
             try {
                 if (typeof supabase !== 'undefined') {
                     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                     
-                    canvasChannel = supabaseClient.channel('canvas_room', {
+                    await loadProjectsList();
+
+                    // Canal Realtime para sincronizar cambios concurrentes
+                    canvasChannel = supabaseClient.channel('canvas_db_room', {
                         config: { broadcast: { self: false } }
                     });
 
                     canvasChannel
                         .on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
-                            if (payload) {
-                                canvasData = payload;
+                            if (payload && payload.id === currentProjectId) {
+                                canvasData = payload.data;
                                 renderAll();
-                                saveLocalData();
                             }
                         })
                         .subscribe((status) => {
                             if (status === 'SUBSCRIBED') {
                                 isSupabaseActive = true;
                                 statusBadge.className = 'status-badge connected';
-                                statusBadge.innerText = '⚡ Realtime Conectado';
+                                statusBadge.innerText = '⚡ Base de Datos Conectada';
                             }
                         });
                 }
@@ -509,6 +529,139 @@
                 statusBadge.className = 'status-badge disconnected';
                 statusBadge.innerText = '❌ Error de Conexión';
             }
+        }
+
+        async function loadProjectsList() {
+            const { data, error } = await supabaseClient
+                .from('projects')
+                .select('id, name, updated_at')
+                .order('updated_at', { ascending: false });
+
+            if (error) {
+                console.error('Error cargando proyectos:', error);
+                return;
+            }
+
+            const selectEl = document.getElementById('project-select');
+            selectEl.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                // Si no hay proyectos, creamos uno por defecto
+                await createNewProject("Mi Primer Proyecto");
+                return;
+            }
+
+            data.forEach(proj => {
+                const opt = document.createElement('option');
+                opt.value = proj.id;
+                opt.textContent = proj.name;
+                selectEl.appendChild(opt);
+            });
+
+            // Cargar el último proyecto activo o el primero de la lista
+            const lastId = localStorage.getItem('bmc_active_project_id');
+            const targetId = data.some(p => p.id === lastId) ? lastId : data[0].id;
+            
+            selectEl.value = targetId;
+            await loadProjectData(targetId);
+        }
+
+        async function loadProjectData(id) {
+            currentProjectId = id;
+            localStorage.setItem('bmc_active_project_id', id);
+
+            const { data, error } = await supabaseClient
+                .from('projects')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) {
+                console.error('Error al obtener proyecto:', error);
+                return;
+            }
+
+            if (data) {
+                canvasData = data.data || {};
+                if (!canvasData.projectName) canvasData.projectName = data.name;
+                renderAll();
+            }
+        }
+
+        async function switchProject(id) {
+            if (!id) return;
+            await loadProjectData(id);
+        }
+
+        async function createNewProject(customName = null) {
+            const name = customName || prompt("Nombre del nuevo proyecto Canvas:", "Nuevo Proyecto");
+            if (!name) return;
+
+            const emptyData = {
+                projectName: name,
+                kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: []
+            };
+
+            const { data, error } = await supabaseClient
+                .from('projects')
+                .insert([{ name: name, data: emptyData }])
+                .select()
+                .single();
+
+            if (error) {
+                alert('Error al crear el proyecto.');
+                console.error(error);
+                return;
+            }
+
+            await loadProjectsList();
+            document.getElementById('project-select').value = data.id;
+            await loadProjectData(data.id);
+        }
+
+        async function syncData() {
+            if (!currentProjectId || !supabaseClient) return;
+
+            // Actualizar nombre en canvasData si cambió en el input
+            const nameInputVal = document.getElementById('project-name-input').value;
+            if (nameInputVal) canvasData.projectName = nameInputVal;
+
+            // Guardar en la base de datos Supabase
+            const { error } = await supabaseClient
+                .from('projects')
+                .update({ 
+                    name: canvasData.projectName || "Sin Nombre",
+                    data: canvasData,
+                    updated_at: new Date()
+                })
+                .eq('id', currentProjectId);
+
+            if (error) {
+                console.error('Error al sincronizar con Supabase:', error);
+            }
+
+            // Actualizar el texto del select visualmente si cambió el nombre
+            const selectEl = document.getElementById('project-select');
+            const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
+            if (opt && canvasData.projectName) {
+                opt.textContent = canvasData.projectName;
+            }
+
+            // Enviar Broadcast en tiempo real a otros usuarios conectados
+            if (isSupabaseActive && canvasChannel) {
+                canvasChannel.send({
+                    type: 'broadcast', 
+                    event: 'canvas_update', 
+                    payload: { id: currentProjectId, data: canvasData }
+                });
+            }
+        }
+
+        // --- MANEJO DE NOMBRE DE PROYECTO ---
+        function handleProjectNameChange() {
+            const val = document.getElementById('project-name-input').value;
+            canvasData.projectName = val;
+            syncData();
         }
 
         function initColorPickers() {
@@ -533,25 +686,6 @@
             const container = document.getElementById('colors-' + blockId);
             container.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
             dotEl.classList.add('selected');
-        }
-
-        function saveLocalData() {
-            localStorage.setItem('bmc_colors_data', JSON.stringify(canvasData));
-        }
-
-        function loadLocalData() {
-            const saved = localStorage.getItem('bmc_colors_data');
-            if (saved) {
-                try { 
-                    const parsed = JSON.parse(saved);
-                    if (parsed && !Array.isArray(parsed)) {
-                        canvasData = { ...canvasData, ...parsed };
-                    }
-                } catch(e){}
-            }
-            if (canvasData.projectName) {
-                document.getElementById('project-name-input').value = canvasData.projectName;
-            }
         }
 
         function renderBlock(blockId) {
@@ -610,7 +744,6 @@
             
             input.value = '';
             
-            // CORRECCIÓN: Renderizar inmediatamente en pantalla
             renderAll();
             syncData();
         }
@@ -618,8 +751,6 @@
         function removeItem(blockId, index) {
             if (canvasData[blockId]) {
                 canvasData[blockId].splice(index, 1);
-                
-                // CORRECCIÓN: Renderizar inmediatamente en pantalla
                 renderAll();
                 syncData();
             }
@@ -637,7 +768,6 @@
                     canvasData[blockId][index].text = newText.trim();
                 }
                 
-                // CORRECCIÓN: Renderizar inmediatamente en pantalla
                 renderAll();
                 syncData();
             }
@@ -653,7 +783,6 @@
             list[index] = list[newIndex];
             list[newIndex] = temp;
 
-            // CORRECCIÓN: Renderizar inmediatamente en pantalla
             renderAll();
             syncData();
         }
@@ -662,23 +791,12 @@
             if (e.key === 'Enter') addItem(blockId);
         }
 
-        function syncData() {
-            saveLocalData();
-            if (isSupabaseActive && canvasChannel) {
-                canvasChannel.send({
-                    type: 'broadcast', 
-                    event: 'canvas_update', 
-                    payload: canvasData
-                });
-            }
-        }
-
         function exportPNG() {
             document.body.classList.add('is-exporting');
             html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
                 document.body.classList.remove('is-exporting');
                 const link = document.createElement('a');
-                link.download = 'business-model-canvas.png';
+                link.download = `${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
             }).catch(() => {
@@ -696,7 +814,7 @@
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
                 pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
-                pdf.save('business-model-canvas.pdf');
+                pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
                 document.body.classList.remove('is-exporting');
             });
