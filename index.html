@@ -426,6 +426,7 @@
         let currentProjectId = null;
         let canvasData = { 
             projectName: "Mi Proyecto Canvas", 
+            logo: null,
             kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
         };
         let supabaseClient = null;
@@ -459,7 +460,6 @@
             document.getElementById('pin-overlay').style.display = 'none';
             document.getElementById('app-content').style.display = 'block';
             initColorPickers();
-            loadSavedLogo();
             initSupabaseAuto();
         }
 
@@ -468,7 +468,7 @@
             location.reload();
         }
 
-        // --- MANEJO DE LOGO ---
+        // --- MANEJO DE LOGO POR PROYECTO ---
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -476,21 +476,19 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const base64Image = e.target.result;
+                canvasData.logo = base64Image; // Guardar en el objeto local del proyecto
                 setLogoImage(base64Image);
-                localStorage.setItem('bmc_company_logo', base64Image);
+                syncData(); // Sincronizar automáticamente con Supabase
             };
             reader.readAsDataURL(file);
         }
 
         function setLogoImage(src) {
             const previewArea = document.getElementById('logo-preview-area');
-            previewArea.innerHTML = `<img src="${src}" alt="Logo Empresa">`;
-        }
-
-        function loadSavedLogo() {
-            const savedLogo = localStorage.getItem('bmc_company_logo');
-            if (savedLogo) {
-                setLogoImage(savedLogo);
+            if (src) {
+                previewArea.innerHTML = `<img src="${src}" alt="Logo Empresa">`;
+            } else {
+                previewArea.innerHTML = 'Logo';
             }
         }
 
@@ -546,7 +544,6 @@
             selectEl.innerHTML = '';
 
             if (!data || data.length === 0) {
-                // Si no hay proyectos, creamos uno por defecto
                 await createNewProject("Mi Primer Proyecto");
                 return;
             }
@@ -558,7 +555,6 @@
                 selectEl.appendChild(opt);
             });
 
-            // Cargar el último proyecto activo o el primero de la lista
             const lastId = localStorage.getItem('bmc_active_project_id');
             const targetId = data.some(p => p.id === lastId) ? lastId : data[0].id;
             
@@ -584,6 +580,10 @@
             if (data) {
                 canvasData = data.data || {};
                 if (!canvasData.projectName) canvasData.projectName = data.name;
+                
+                // Cargar o limpiar el logo correspondiente a este proyecto
+                setLogoImage(canvasData.logo || null);
+
                 renderAll();
             }
         }
@@ -599,6 +599,7 @@
 
             const emptyData = {
                 projectName: name,
+                logo: null,
                 kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: []
             };
 
@@ -622,11 +623,9 @@
         async function syncData() {
             if (!currentProjectId || !supabaseClient) return;
 
-            // Actualizar nombre en canvasData si cambió en el input
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
 
-            // Guardar en la base de datos Supabase
             const { error } = await supabaseClient
                 .from('projects')
                 .update({ 
@@ -640,14 +639,12 @@
                 console.error('Error al sincronizar con Supabase:', error);
             }
 
-            // Actualizar el texto del select visualmente si cambió el nombre
             const selectEl = document.getElementById('project-select');
             const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
             if (opt && canvasData.projectName) {
                 opt.textContent = canvasData.projectName;
             }
 
-            // Enviar Broadcast en tiempo real a otros usuarios conectados
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast', 
@@ -657,7 +654,6 @@
             }
         }
 
-        // --- MANEJO DE NOMBRE DE PROYECTO ---
         function handleProjectNameChange() {
             const val = document.getElementById('project-name-input').value;
             canvasData.projectName = val;
@@ -666,7 +662,7 @@
 
         function initColorPickers() {
             Object.keys(canvasData).forEach(blockId => {
-                if (blockId === 'projectName') return;
+                if (blockId === 'projectName' || blockId === 'logo') return;
                 selectedColors[blockId] = 'blue';
                 const container = document.getElementById('colors-' + blockId);
                 if (!container) return;
@@ -717,7 +713,7 @@
 
         function renderAll() {
             Object.keys(canvasData).forEach(blockId => {
-                if (blockId !== 'projectName') renderBlock(blockId);
+                if (blockId !== 'projectName' && blockId !== 'logo') renderBlock(blockId);
             });
             if (canvasData.projectName !== undefined) {
                 const inputEl = document.getElementById('project-name-input');
