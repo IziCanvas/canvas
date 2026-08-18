@@ -253,6 +253,7 @@
 
         .status-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; }
         .status-badge.connected { background-color: #d1fae5; color: #065f46; }
+        .status-badge.offline { background-color: #fef3c7; color: #92400e; }
         .status-badge.disconnected { background-color: #fee2e2; color: #991b1b; }
     </style>
 </head>
@@ -281,7 +282,7 @@
                 
                 <div>
                     <h1>Business Model Canvas</h1>
-                    <span id="connection-status" class="status-badge disconnected">Conectando a Supabase...</span>
+                    <span id="connection-status" class="status-badge offline">Verificando conexión...</span>
                 </div>
             </div>
 
@@ -440,6 +441,9 @@
             if (localStorage.getItem('bmc_authenticated') === 'true') {
                 unlockApp();
             }
+
+            window.addEventListener('online', () => initSupabaseAuto());
+            window.addEventListener('offline', () => handleNetworkChange(false));
         };
 
         function verifyPassword() {
@@ -471,7 +475,19 @@
             location.reload();
         }
 
-        // --- MANEJO DE LOGO POR PROYECTO ---
+        function handleNetworkChange(isOnline) {
+            const statusBadge = document.getElementById('connection-status');
+            if (isOnline) {
+                statusBadge.className = 'status-badge connected';
+                statusBadge.innerText = '⚡ Base de Datos Conectada';
+                isSupabaseActive = true;
+            } else {
+                statusBadge.className = 'status-badge offline';
+                statusBadge.innerText = '💾 Modo Offline (Guardando local)';
+                isSupabaseActive = false;
+            }
+        }
+
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -495,54 +511,112 @@
             }
         }
 
-        // --- CONEXIÓN Y PERSISTENCIA SUPABASE ---
         async function initSupabaseAuto() {
             const statusBadge = document.getElementById('connection-status');
+            
+            // 1. CARGA LOCAL PRIMERO: Garantiza velocidad y funcionamiento sin red de inmediato
+            loadLocalFallback();
+
+            if (!navigator.onLine) {
+                handleNetworkChange(false);
+                return;
+            }
+
             try {
                 if (typeof supabase !== 'undefined') {
-                    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    if (!supabaseClient) {
+                        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    }
                     
+                    // Prueba de conexión rápida a la tabla
+                    const { error: testError } = await supabaseClient.from('projects').select('id').limit(1);
+                    
+                    if (testError) {
+                        throw new Error(testError.message);
+                    }
+
+                    isSupabaseActive = true;
+                    statusBadge.className = 'status-badge connected';
+                    statusBadge.innerText = '⚡ Base de Datos Conectada';
+
                     await loadProjectsList();
 
-                    // Canal Realtime para sincronizar cambios concurrentes de contenido y proyectos
-                    canvasChannel = supabaseClient.channel('canvas_db_room', {
-                        config: { broadcast: { self: false } }
-                    });
-
-                    canvasChannel
-                        .on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
-                            if (payload && payload.id === currentProjectId) {
-                                canvasData = payload.data;
-                                renderAll();
-                            }
-                        })
-                        .on('broadcast', { event: 'projects_list_update' }, async () => {
-                            // Actualizar lista en tiempo real cuando otro cliente crea o borra un proyecto
-                            await loadProjectsList(true);
-                        })
-                        .subscribe((status) => {
-                            if (status === 'SUBSCRIBED') {
-                                isSupabaseActive = true;
-                                statusBadge.className = 'status-badge connected';
-                                statusBadge.innerText = '⚡ Base de Datos Conectada';
-                            }
+                    if (!canvasChannel) {
+                        canvasChannel = supabaseClient.channel('canvas_db_room', {
+                            config: { broadcast: { self: false } }
                         });
+
+                        canvasChannel
+                            .on('broadcast', { event: 'canvas_update' }, ({ payload }) => {
+                                if (payload && payload.id === currentProjectId) {
+                                    canvasData = payload.data;
+                                    saveToLocalStorage();
+                                    renderAll();
+                                }
+                            })
+                            .on('broadcast', { event: 'projects_list_update' }, async () => {
+                                await loadProjectsList(true);
+                            })
+                            .subscribe();
+                    }
                 }
             } catch(e) {
-                console.error("Error conectando a Supabase:", e);
-                statusBadge.className = 'status-badge disconnected';
-                statusBadge.innerText = '❌ Error de Conexión';
+                console.warn("Supabase no accesible, operando en modo local:", e);
+                handleNetworkChange(false);
+            }
+        }
+
+        function loadLocalFallback() {
+            const localProjects = localStorage.getItem('bmc_projects_cache');
+            const selectEl = document.getElementById('project-select');
+            
+            if (localProjects && selectEl.options.length <= 1) {
+                try {
+                    const data = JSON.parse(localProjects);
+                    selectEl.innerHTML = '';
+                    data.forEach(proj => {
+                        const opt = document.createElement('option');
+                        opt.value = proj.id;
+                        opt.textContent = proj.name || proj.data?.projectName || "Sin nombre";
+                        selectEl.appendChild(opt);
+                    });
+
+                    const lastId = localStorage.getItem('bmc_active_project_id');
+                    const targetProj = data.find(p => p.id == lastId) || data[0];
+                    if (targetProj) {
+                        selectEl.value = targetProj.id;
+                        currentProjectId = targetProj.id;
+                        canvasData = targetProj.data || canvasData;
+                        setLogoImage(canvasData.logo || null);
+                        renderAll();
+                    }
+                    return;
+                } catch(err) {
+                    console.error("Error leyendo caché local", err);
+                }
+            }
+
+            if (!currentProjectId) {
+                currentProjectId = localStorage.getItem('bmc_active_project_id') || 'offline_default';
+                const savedLocalData = localStorage.getItem('bmc_data_' + currentProjectId);
+                if (savedLocalData) {
+                    try { canvasData = JSON.parse(savedLocalData); } catch(e){}
+                }
+                setLogoImage(canvasData.logo || null);
+                renderAll();
             }
         }
 
         async function loadProjectsList(preserveCurrent = false) {
+            if (!supabaseClient || !isSupabaseActive) return;
+
             const { data, error } = await supabaseClient
                 .from('projects')
-                .select('id, name, updated_at')
-                .order('updated_at', { ascending: false });
+                .select('*')
+                .order('id', { ascending: false });
 
             if (error) {
-                console.error('Error cargando proyectos:', error);
+                console.error('Error cargando proyectos desde Supabase:', error);
                 return;
             }
 
@@ -555,19 +629,21 @@
                 return;
             }
 
+            localStorage.setItem('bmc_projects_cache', JSON.stringify(data));
+
             data.forEach(proj => {
                 const opt = document.createElement('option');
                 opt.value = proj.id;
-                opt.textContent = proj.name;
+                opt.textContent = proj.name || proj.data?.projectName || "Sin nombre";
                 selectEl.appendChild(opt);
             });
 
             let targetId;
-            if (preserveCurrent && data.some(p => p.id === previousSelection)) {
+            if (preserveCurrent && data.some(p => p.id == previousSelection)) {
                 targetId = previousSelection;
             } else {
                 const lastId = localStorage.getItem('bmc_active_project_id');
-                targetId = data.some(p => p.id === lastId) ? lastId : data[0].id;
+                targetId = data.some(p => p.id == lastId) ? lastId : data[0].id;
             }
             
             selectEl.value = targetId;
@@ -577,6 +653,16 @@
         async function loadProjectData(id) {
             currentProjectId = id;
             localStorage.setItem('bmc_active_project_id', id);
+
+            if (!isSupabaseActive || !supabaseClient) {
+                const localData = localStorage.getItem('bmc_data_' + id);
+                if (localData) {
+                    try { canvasData = JSON.parse(localData); } catch(e){}
+                }
+                setLogoImage(canvasData.logo || null);
+                renderAll();
+                return;
+            }
 
             const { data, error } = await supabaseClient
                 .from('projects')
@@ -593,6 +679,7 @@
                 canvasData = data.data || {};
                 if (!canvasData.projectName) canvasData.projectName = data.name;
                 
+                saveToLocalStorage();
                 setLogoImage(canvasData.logo || null);
                 renderAll();
             }
@@ -613,6 +700,24 @@
                 kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: []
             };
 
+            if (!isSupabaseActive || !supabaseClient) {
+                const newId = 'local_' + Date.now();
+                canvasData = emptyData;
+                currentProjectId = newId;
+                saveToLocalStorage();
+                
+                const selectEl = document.getElementById('project-select');
+                const opt = document.createElement('option');
+                opt.value = newId;
+                opt.textContent = name;
+                selectEl.appendChild(opt);
+                selectEl.value = newId;
+                
+                setLogoImage(null);
+                renderAll();
+                return;
+            }
+
             const { data, error } = await supabaseClient
                 .from('projects')
                 .insert([{ name: name, data: emptyData }])
@@ -629,7 +734,6 @@
             document.getElementById('project-select').value = data.id;
             await loadProjectData(data.id);
 
-            // Notificar a otros clientes en tiempo real
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast',
@@ -653,6 +757,13 @@
                 return;
             }
 
+            if (!isSupabaseActive || !supabaseClient) {
+                selectEl.remove(selectEl.selectedIndex);
+                localStorage.removeItem('bmc_data_' + currentProjectId);
+                switchProject(selectEl.value);
+                return;
+            }
+
             const { error } = await supabaseClient
                 .from('projects')
                 .delete()
@@ -664,7 +775,6 @@
                 return;
             }
 
-            // Notificar a otros clientes en tiempo real
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast',
@@ -676,19 +786,31 @@
             await loadProjectsList();
         }
 
-        async function syncData() {
-            if (!currentProjectId || !supabaseClient) return;
+        function saveToLocalStorage() {
+            if (!currentProjectId) return;
+            localStorage.setItem('bmc_data_' + currentProjectId, JSON.stringify(canvasData));
+        }
 
+        async function syncData() {
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
 
+            saveToLocalStorage();
+
+            if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
+
+            const payloadUpdate = { 
+                name: canvasData.projectName || "Sin Nombre",
+                data: canvasData
+            };
+            
+            if (currentProjectId.toString().indexOf('local_') === -1) {
+                payloadUpdate.updated_at = new Date();
+            }
+
             const { error } = await supabaseClient
                 .from('projects')
-                .update({ 
-                    name: canvasData.projectName || "Sin Nombre",
-                    data: canvasData,
-                    updated_at: new Date()
-                })
+                .update(payloadUpdate)
                 .eq('id', currentProjectId);
 
             if (error) {
