@@ -512,14 +512,8 @@
                 const { data, error } = await supabaseClient.auth.signUp({ email, password });
                 
                 if (error) {
-                    let mensaje = error.message;
-                    // Traducimos el error de Supabase al español
-                    if (mensaje.toLowerCase().includes("already registered") || mensaje.toLowerCase().includes("user already registered")) {
-                        mensaje = "Este correo ya tiene una cuenta registrada. Por favor, inicia sesión.";
-                    }
-                    errorEl.innerText = mensaje;
+                    errorEl.innerText = error.message;
                     errorEl.style.display = 'block';
-                    successEl.style.display = 'none';
                 } else {
                 // Usamos el mismo successEl pero nos aseguramos de que se muestre claramente
                 successEl.innerText = "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar la cuenta.";
