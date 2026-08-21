@@ -509,16 +509,27 @@
             }
 
             if (isSignUpMode) {
-                const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                const { data, error } = await supabaseClient.auth.signUp({ 
+                    email, 
+                    password 
+                });
+
                 if (error) {
-                    errorEl.innerText = error.message;
+                    // Problema 2: El correo ya existe
+                    let mensaje = error.message;
+                    if (error.message.includes("already registered")) {
+                        mensaje = "Este correo ya tiene una cuenta. ¡Inicia sesión!";
+                    }
+                    errorEl.innerText = mensaje;
                     errorEl.style.display = 'block';
                 } else {
-                    successEl.innerText = "¡Registro exitoso! Revisa tu correo si requiere confirmación o inicia sesión.";
+                    // Problema 1: Registro exitoso, pero requiere confirmación
+                    // Forzamos el mensaje para que el usuario sepa qué hacer
+                    errorEl.style.display = 'none'; // Limpiamos errores anteriores
+                    successEl.innerText = "¡Registro exitoso! Por favor, revisa tu email y haz clic en el enlace de confirmación para activar tu cuenta antes de iniciar sesión.";
                     successEl.style.display = 'block';
-                    isSignUpMode = false;
-                    toggleAuthMode();
                 }
+            }
             } else {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) {
