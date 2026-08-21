@@ -514,11 +514,16 @@
                     errorEl.innerText = error.message;
                     errorEl.style.display = 'block';
                 } else {
-                    successEl.innerText = "¡Registro exitoso! Revisa tu correo si requiere confirmación o inicia sesión.";
-                    successEl.style.display = 'block';
-                    isSignUpMode = false;
-                    toggleAuthMode();
-                }
+                // Usamos el mismo successEl pero nos aseguramos de que se muestre claramente
+                successEl.innerText = "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar la cuenta.";
+                successEl.style.display = 'block';
+                errorEl.style.display = 'none';
+                
+                // Opcional: Si no quieres que cambie de pantalla de golpe para que se lea el mensaje, 
+                // puedes comentar o quitar temporalmente estas dos líneas:
+                // isSignUpMode = false;
+                // toggleAuthMode();
+            }
             } else {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) {
