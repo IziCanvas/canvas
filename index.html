@@ -788,11 +788,18 @@
                 return;
             }
 
-            // Si tienes RLS configurado por usuario, enviamos el user_id opcionalmente
-            const insertPayload = { name: name, data: emptyData };
-            if (currentUser) {
-                insertPayload.user_id = currentUser.id;
+            // Blindaje: Verificamos que el usuario esté autenticado antes de insertar
+            if (!currentUser || !currentUser.id) {
+                alert("Debes iniciar sesión para crear un proyecto.");
+                return;
             }
+
+            // Enviamos el user_id de forma directa exigido por la política RLS
+            const insertPayload = { 
+                name: name, 
+                data: emptyData,
+                user_id: currentUser.id 
+            };
 
             const { data, error } = await supabaseClient
                 .from('projects')
