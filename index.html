@@ -1120,16 +1120,38 @@
 
         function exportPDF() {
             document.body.classList.add('is-exporting');
-            html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+            
+            // 1. Expandimos temporalmente las listas para que no compriman la data
+            document.querySelectorAll('.items-list').forEach(el => {
+                el.style.maxHeight = 'none';
+                el.style.overflow = 'visible';
+            });
+        
+            html2canvas(document.getElementById('canvas-to-export'), { scale: 3, useCORS: true, logging: false }).then(canvas => {
+                // Restauramos los estilos originales de las listas
+                document.querySelectorAll('.items-list').forEach(el => {
+                    el.style.maxHeight = '';
+                    el.style.overflow = '';
+                });
                 document.body.classList.remove('is-exporting');
+        
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('landscape', 'pt', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
+                
+                // 2. Aquí cambiamos el cálculo de la altura para que sea proporcional y no comprima las letras
+                const imgWidth = pdfWidth - 40;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+                pdf.addImage(imgData, 'JPEG', 20, 20, imgWidth, imgHeight);
                 pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
+                // Restauramos estilos si ocurre algún error
+                document.querySelectorAll('.items-list').forEach(el => {
+                    el.style.maxHeight = '';
+                    el.style.overflow = '';
+                });
                 document.body.classList.remove('is-exporting');
             });
         }
