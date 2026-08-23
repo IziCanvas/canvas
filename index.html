@@ -883,35 +883,62 @@
         async function syncData() {
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
-
+        
+            // 1. Guardar siempre en local primero como respaldo
             saveToLocalStorage();
-
+        
+            // Si no hay conexión o el ID es el predeterminado offline, intentamos convertirlo o frenamos
             if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
-
+        
+            // Si el ID actual es un string de respaldo local (ej: 'offline_default' o 'local_...'), 
+            // debemos crearlo en la base de datos en lugar de hacer un update fallido.
+            if (typeof currentProjectId === 'string' && (currentProjectId.startsWith('local_') || currentProjectId === 'offline_default')) {
+                const insertPayload = { 
+                    name: canvasData.projectName || "Mi Proyecto", 
+                    data: canvasData,
+                    user_id: currentUser ? currentUser.id : null 
+                };
+        
+                const { data, error } = await supabaseClient
+                    .from('projects')
+                    .insert([insertPayload])
+                    .select()
+                    .single();
+        
+                if (!error && data) {
+                    currentProjectId = data.id; // Actualizamos al ID real de Supabase
+                    localStorage.setItem('bmc_active_project_id', currentProjectId);
+                    await loadProjectsList(true); // Refrescamos el selector
+                } else {
+                    console.error('Error al migrar proyecto local a Supabase:', error);
+                    return;
+                }
+            }
+        
+            // 2. Ejecución limpia del update hacia la base de datos
             const payloadUpdate = { 
                 name: canvasData.projectName || "Sin Nombre",
-                data: canvasData
+                data: canvasData,
+                updated_at: new Date()
             };
-            
-            if (currentProjectId.toString().indexOf('local_') === -1) {
-                payloadUpdate.updated_at = new Date();
-            }
-
+        
             const { error } = await supabaseClient
                 .from('projects')
                 .update(payloadUpdate)
                 .eq('id', currentProjectId);
-
+        
             if (error) {
                 console.error('Error al sincronizar con Supabase:', error);
             }
-
+        
+            // 3. Actualizar nombre en el selector visualmente
             const selectEl = document.getElementById('project-select');
             const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
             if (opt && canvasData.projectName) {
                 opt.textContent = canvasData.projectName;
             }
-
+        
+            // 4. Enviar señal de tiempo real a los demás computadores
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast', 
