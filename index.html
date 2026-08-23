@@ -735,13 +735,6 @@
                 const localData = localStorage.getItem('bmc_data_' + id);
                 if (localData) {
                     try { canvasData = JSON.parse(localData); } catch(e){}
-                } else {
-                    // Si no hay datos locales para este ID, inicializamos un lienzo vacío limpio
-                    canvasData = { 
-                        projectName: "Mi Proyecto Canvas", 
-                        logo: null,
-                        kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
-                    };
                 }
                 setLogoImage(canvasData.logo || null);
                 renderAll();
@@ -755,24 +748,12 @@
                 .single();
 
             if (error) {
-                console.error('Error al obtener proyecto de Supabase:', error);
-                // Fallback a local si falla la red
-                const localData = localStorage.getItem('bmc_data_' + id);
-                if (localData) {
-                    try { canvasData = JSON.parse(localData); } catch(e){}
-                }
-                setLogoImage(canvasData.logo || null);
-                renderAll();
+                console.error('Error al obtener proyecto:', error);
                 return;
             }
 
             if (data) {
-                // Si la base de datos tiene datos válidos, los cargamos; de lo contrario mantenemos estructura base
-                canvasData = data.data || { 
-                    projectName: data.name || "Sin Nombre", 
-                    logo: null,
-                    kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
-                };
+                canvasData = data.data || {};
                 if (!canvasData.projectName) canvasData.projectName = data.name;
                 
                 saveToLocalStorage();
@@ -888,13 +869,10 @@
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
 
-            // 1. Guardado inmediato en local (respaldo)
+            // 1. Guardado local inmediato
             saveToLocalStorage();
 
-            // Si no hay conexión o sesión activa, salimos pero ya quedó guardado localmente
             if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
-
-            // Si el ID es puramente temporal de respaldo local antiguo, no intentamos actualizar remoto
             if (currentProjectId === 'offline_default') return;
 
             const payloadUpdate = { 
@@ -903,24 +881,23 @@
                 updated_at: new Date()
             };
 
-            // 2. GUARDADO REAL Y PERMANENTE EN LA BASE DE DATOS DE SUPABASE
+            // 2. Guardado permanente en la base de datos de Supabase
             const { error } = await supabaseClient
                 .from('projects')
                 .update(payloadUpdate)
                 .eq('id', currentProjectId);
 
             if (error) {
-                console.error('Error al guardar permanentemente en Supabase:', error);
+                console.error('Error al sincronizar con Supabase:', error);
             }
 
-            // Actualizar el selector visual si cambió el nombre
             const selectEl = document.getElementById('project-select');
             const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
             if (opt && canvasData.projectName) {
                 opt.textContent = canvasData.projectName;
             }
 
-            // 3. Notificar al otro navegador en tiempo real vía Broadcast
+            // 3. Notificar al otro navegador en tiempo real
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast', 
