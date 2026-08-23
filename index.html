@@ -796,31 +796,11 @@
                 kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: []
             };
 
-            if (!isSupabaseActive || !supabaseClient) {
-                const newId = 'local_' + Date.now();
-                canvasData = emptyData;
-                currentProjectId = newId;
-                saveToLocalStorage();
-                
-                const selectEl = document.getElementById('project-select');
-                const opt = document.createElement('option');
-                opt.value = newId;
-                opt.textContent = name;
-                selectEl.appendChild(opt);
-                selectEl.value = newId;
-                
-                setLogoImage(null);
-                renderAll();
+            if (!isSupabaseActive || !supabaseClient || !currentUser) {
+                alert("Debes tener conexión y sesión iniciada para crear un proyecto en la nube.");
                 return;
             }
 
-            // Blindaje: Verificamos que el usuario esté autenticado antes de insertar
-            if (!currentUser || !currentUser.id) {
-                alert("Debes iniciar sesión para crear un proyecto.");
-                return;
-            }
-
-            // Enviamos el user_id de forma directa exigido por la política RLS
             const insertPayload = { 
                 name: name, 
                 data: emptyData,
@@ -834,14 +814,18 @@
                 .single();
 
             if (error) {
-                alert('Error al crear el proyecto: ' + error.message);
+                alert('Error al crear el proyecto en Supabase: ' + error.message);
                 console.error(error);
                 return;
             }
 
-            await loadProjectsList();
-            document.getElementById('project-select').value = data.id;
-            await loadProjectData(data.id);
+            // Recargamos la lista para sincronizar IDs reales de base de datos en ambos navegadores
+            await loadProjectsList(true);
+            
+            if (data && data.id) {
+                document.getElementById('project-select').value = data.id;
+                await loadProjectData(data.id);
+            }
 
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
@@ -904,15 +888,14 @@
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
 
-            // Guardado local inmediato de respaldo
+            // 1. Guardado inmediato en local (respaldo)
             saveToLocalStorage();
 
+            // Si no hay conexión o sesión activa, salimos pero ya quedó guardado localmente
             if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
 
-            // Si es un proyecto temporal local, no intentamos hacer update remoto hasta que exista en base de datos
-            if (currentProjectId.toString().indexOf('local_') !== -1 || currentProjectId === 'offline_default') {
-                return;
-            }
+            // Si el ID es puramente temporal de respaldo local antiguo, no intentamos actualizar remoto
+            if (currentProjectId === 'offline_default') return;
 
             const payloadUpdate = { 
                 name: canvasData.projectName || "Sin Nombre",
@@ -920,28 +903,32 @@
                 updated_at: new Date()
             };
 
+            // 2. GUARDADO REAL Y PERMANENTE EN LA BASE DE DATOS DE SUPABASE
             const { error } = await supabaseClient
                 .from('projects')
                 .update(payloadUpdate)
                 .eq('id', currentProjectId);
 
             if (error) {
-                console.error('Error al sincronizar con Supabase:', error);
-            } else {
-                // Actualizamos también el caché local de proyectos para que el selector refleje el nombre actualizado
-                const localProjects = localStorage.getItem('bmc_projects_cache');
-                if (localProjects) {
-                    try {
-                        let projectsList = JSON.parse(localProjects);
-                        let proj = projectsList.find(p => p.id == currentProjectId);
-                        if (proj) {
-                            proj.name = canvasData.projectName;
-                            proj.data = canvasData;
-                            localStorage.setItem('bmc_projects_cache', JSON.stringify(projectsList));
-                        }
-                    } catch(e) {}
-                }
+                console.error('Error al guardar permanentemente en Supabase:', error);
             }
+
+            // Actualizar el selector visual si cambió el nombre
+            const selectEl = document.getElementById('project-select');
+            const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
+            if (opt && canvasData.projectName) {
+                opt.textContent = canvasData.projectName;
+            }
+
+            // 3. Notificar al otro navegador en tiempo real vía Broadcast
+            if (isSupabaseActive && canvasChannel) {
+                canvasChannel.send({
+                    type: 'broadcast', 
+                    event: 'canvas_update', 
+                    payload: { id: currentProjectId, data: canvasData }
+                });
+            }
+        }
 
             const selectEl = document.getElementById('project-select');
             const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
