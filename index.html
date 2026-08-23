@@ -727,13 +727,21 @@
         }
 
         async function loadProjectData(id) {
+            if (!id) return;
             currentProjectId = id;
             localStorage.setItem('bmc_active_project_id', id);
 
-            if (!isSupabaseActive || !supabaseClient) {
+            if (!isSupabaseActive || !supabaseClient || id.toString().indexOf('local_') !== -1 || id === 'offline_default') {
                 const localData = localStorage.getItem('bmc_data_' + id);
                 if (localData) {
                     try { canvasData = JSON.parse(localData); } catch(e){}
+                } else {
+                    // Si no hay datos locales para este ID, inicializamos un lienzo vacío limpio
+                    canvasData = { 
+                        projectName: "Mi Proyecto Canvas", 
+                        logo: null,
+                        kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
+                    };
                 }
                 setLogoImage(canvasData.logo || null);
                 renderAll();
@@ -747,12 +755,24 @@
                 .single();
 
             if (error) {
-                console.error('Error al obtener proyecto:', error);
+                console.error('Error al obtener proyecto de Supabase:', error);
+                // Fallback a local si falla la red
+                const localData = localStorage.getItem('bmc_data_' + id);
+                if (localData) {
+                    try { canvasData = JSON.parse(localData); } catch(e){}
+                }
+                setLogoImage(canvasData.logo || null);
+                renderAll();
                 return;
             }
 
             if (data) {
-                canvasData = data.data || {};
+                // Si la base de datos tiene datos válidos, los cargamos; de lo contrario mantenemos estructura base
+                canvasData = data.data || { 
+                    projectName: data.name || "Sin Nombre", 
+                    logo: null,
+                    kp: [], ka: [], kr: [], vp: [], cr: [], ch: [], cs: [], cost: [], rev: [] 
+                };
                 if (!canvasData.projectName) canvasData.projectName = data.name;
                 
                 saveToLocalStorage();
@@ -884,18 +904,21 @@
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
 
+            // Guardado local inmediato de respaldo
             saveToLocalStorage();
 
             if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
 
+            // Si es un proyecto temporal local, no intentamos hacer update remoto hasta que exista en base de datos
+            if (currentProjectId.toString().indexOf('local_') !== -1 || currentProjectId === 'offline_default') {
+                return;
+            }
+
             const payloadUpdate = { 
                 name: canvasData.projectName || "Sin Nombre",
-                data: canvasData
+                data: canvasData,
+                updated_at: new Date()
             };
-            
-            if (currentProjectId.toString().indexOf('local_') === -1) {
-                payloadUpdate.updated_at = new Date();
-            }
 
             const { error } = await supabaseClient
                 .from('projects')
@@ -904,6 +927,20 @@
 
             if (error) {
                 console.error('Error al sincronizar con Supabase:', error);
+            } else {
+                // Actualizamos también el caché local de proyectos para que el selector refleje el nombre actualizado
+                const localProjects = localStorage.getItem('bmc_projects_cache');
+                if (localProjects) {
+                    try {
+                        let projectsList = JSON.parse(localProjects);
+                        let proj = projectsList.find(p => p.id == currentProjectId);
+                        if (proj) {
+                            proj.name = canvasData.projectName;
+                            proj.data = canvasData;
+                            localStorage.setItem('bmc_projects_cache', JSON.stringify(projectsList));
+                        }
+                    } catch(e) {}
+                }
             }
 
             const selectEl = document.getElementById('project-select');
