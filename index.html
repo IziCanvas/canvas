@@ -285,7 +285,10 @@
             <div id="auth-error" class="auth-error"></div>
             <div id="auth-success" class="auth-success"></div>
 
-            <button class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-btn">¿No tienes cuenta? Regístrate aquí</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 5px;">
+                <button class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-btn" style="margin-top:0;">¿No tienes cuenta? Regístrate aquí</button>
+                <button class="auth-toggle" onclick="toggleForgotPassword()" id="auth-forgot-btn" style="margin-top:0;">¿Olvidaste tu contraseña?</button>
+            </div>
         </div>
     </div>
 
@@ -448,6 +451,7 @@
         let currentProjectId = null;
         let currentUser = null;
         let isSignUpMode = false;
+        let isForgotMode = false;
 
         let canvasData = { 
             projectName: "Mi Proyecto Canvas", 
@@ -463,7 +467,6 @@
                 supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             }
 
-            // Verificar sesión activa en Supabase Auth
             if (supabaseClient) {
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session && session.user) {
@@ -476,13 +479,38 @@
             window.addEventListener('offline', () => handleNetworkChange(false));
         };
 
-        // --- GESTIÓN DE AUTENTICACIÓN SUPABASE (RLS COMPATIBLE) ---
         function toggleAuthMode() {
             isSignUpMode = !isSignUpMode;
+            isForgotMode = false;
+            document.getElementById('auth-password').style.display = 'block';
             document.getElementById('auth-title').innerText = isSignUpMode ? "📝 Registro de Usuario" : "🔐 Iniciar Sesión";
             document.getElementById('auth-subtitle').innerText = isSignUpMode ? "Crea una nueva cuenta con tu correo" : "Ingresa con tu cuenta para acceder al Canvas";
             document.getElementById('auth-btn').innerText = isSignUpMode ? "Registrarse" : "Entrar";
             document.getElementById('auth-toggle-btn').innerText = isSignUpMode ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate aquí";
+            document.getElementById('auth-forgot-btn').style.display = isSignUpMode ? 'none' : 'inline-block';
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-success').style.display = 'none';
+        }
+
+        function toggleForgotPassword() {
+            isForgotMode = !isForgotMode;
+            isSignUpMode = false;
+            const passInput = document.getElementById('auth-password');
+            const forgotBtn = document.getElementById('auth-forgot-btn');
+            
+            if (isForgotMode) {
+                passInput.style.display = 'none';
+                document.getElementById('auth-title').innerText = "🔄 Recuperar Contraseña";
+                document.getElementById('auth-subtitle').innerText = "Ingresa tu correo para enviarte las instrucciones";
+                document.getElementById('auth-btn').innerText = "Enviar enlace de recuperación";
+                forgotBtn.innerText = "Volver al inicio de sesión";
+            } else {
+                passInput.style.display = 'block';
+                document.getElementById('auth-title').innerText = "🔐 Iniciar Sesión";
+                document.getElementById('auth-subtitle').innerText = "Ingresa con tu cuenta para acceder al Canvas";
+                document.getElementById('auth-btn').innerText = "Entrar";
+                forgotBtn.innerText = "¿Olvidaste tu contraseña?";
+            }
             document.getElementById('auth-error').style.display = 'none';
             document.getElementById('auth-success').style.display = 'none';
         }
@@ -496,7 +524,7 @@
             errorEl.style.display = 'none';
             successEl.style.display = 'none';
 
-            if (!email || !password) {
+            if (!email || (!password && !isForgotMode)) {
                 errorEl.innerText = "Por favor, completa todos los campos.";
                 errorEl.style.display = 'block';
                 return;
@@ -508,6 +536,20 @@
                 return;
             }
 
+            if (isForgotMode) {
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.href,
+                });
+                if (error) {
+                    errorEl.innerText = error.message;
+                    errorEl.style.display = 'block';
+                } else {
+                    successEl.innerText = "¡Correo de recuperación enviado! Revisa tu bandeja de entrada.";
+                    successEl.style.display = 'block';
+                }
+                return;
+            }
+
             if (isSignUpMode) {
                 const { data, error } = await supabaseClient.auth.signUp({ email, password });
                 
@@ -515,16 +557,10 @@
                     errorEl.innerText = error.message;
                     errorEl.style.display = 'block';
                 } else {
-                // Usamos el mismo successEl pero nos aseguramos de que se muestre claramente
-                successEl.innerText = "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar la cuenta.";
-                successEl.style.display = 'block';
-                errorEl.style.display = 'none';
-                
-                // Opcional: Si no quieres que cambie de pantalla de golpe para que se lea el mensaje, 
-                // puedes comentar o quitar temporalmente estas dos líneas:
-                // isSignUpMode = false;
-                // toggleAuthMode();
-            }
+                    successEl.innerText = "¡Registro exitoso! Por favor, revisa tu correo electrónico para confirmar la cuenta.";
+                    successEl.style.display = 'block';
+                    errorEl.style.display = 'none';
+                }
             } else {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) {
@@ -687,8 +723,6 @@
 
             let query = supabaseClient.from('projects').select('*').order('id', { ascending: false });
             
-            // Si la tabla cuenta con RLS por user_id, Supabase filtra automáticamente, 
-            // pero podemos asegurar el filtro si la columna user_id existe.
             const { data, error } = await query;
 
             if (error) {
@@ -794,13 +828,11 @@
                 return;
             }
 
-            // Blindaje: Verificamos que el usuario esté autenticado antes de insertar
             if (!currentUser || !currentUser.id) {
                 alert("Debes iniciar sesión para crear un proyecto.");
                 return;
             }
 
-            // Enviamos el user_id de forma directa exigido por la política RLS
             const insertPayload = { 
                 name: name, 
                 data: emptyData,
@@ -883,35 +915,55 @@
         async function syncData() {
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
-
+        
             saveToLocalStorage();
-
+        
             if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
-
+        
+            if (typeof currentProjectId === 'string' && (currentProjectId.startsWith('local_') || currentProjectId === 'offline_default')) {
+                const insertPayload = { 
+                    name: canvasData.projectName || "Mi Proyecto", 
+                    data: canvasData,
+                    user_id: currentUser ? currentUser.id : null 
+                };
+        
+                const { data, error } = await supabaseClient
+                    .from('projects')
+                    .insert([insertPayload])
+                    .select()
+                    .single();
+        
+                if (!error && data) {
+                    currentProjectId = data.id;
+                    localStorage.setItem('bmc_active_project_id', currentProjectId);
+                    await loadProjectsList(true);
+                } else {
+                    console.error('Error al migrar proyecto local a Supabase:', error);
+                    return;
+                }
+            }
+        
             const payloadUpdate = { 
                 name: canvasData.projectName || "Sin Nombre",
-                data: canvasData
+                data: canvasData,
+                updated_at: new Date()
             };
-            
-            if (currentProjectId.toString().indexOf('local_') === -1) {
-                payloadUpdate.updated_at = new Date();
-            }
-
+        
             const { error } = await supabaseClient
                 .from('projects')
                 .update(payloadUpdate)
                 .eq('id', currentProjectId);
-
+        
             if (error) {
                 console.error('Error al sincronizar con Supabase:', error);
             }
-
+        
             const selectEl = document.getElementById('project-select');
             const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
             if (opt && canvasData.projectName) {
                 opt.textContent = canvasData.projectName;
             }
-
+        
             if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast', 
@@ -1093,16 +1145,84 @@
 
         function exportPDF() {
             document.body.classList.add('is-exporting');
-            html2canvas(document.getElementById('canvas-to-export'), { scale: 2 }).then(canvas => {
+            
+            const canvasContainer = document.getElementById('canvas-to-export');
+            const originalHeight = canvasContainer.style.height;
+            const originalMaxHeight = canvasContainer.style.maxHeight;
+            const originalOverflow = canvasContainer.style.overflow;
+        
+            canvasContainer.style.height = 'auto';
+            canvasContainer.style.maxHeight = 'none';
+            canvasContainer.style.overflow = 'visible';
+        
+            document.querySelectorAll('.items-list').forEach(el => {
+                el.style.maxHeight = 'none';
+                el.style.overflow = 'visible';
+            });
+        
+            html2canvas(canvasContainer, { 
+                scale: 3, 
+                useCORS: true, 
+                logging: false 
+            }).then(canvas => {
+                canvasContainer.style.height = originalHeight;
+                canvasContainer.style.maxHeight = originalMaxHeight;
+                canvasContainer.style.overflow = originalOverflow;
+        
+                document.querySelectorAll('.items-list').forEach(el => {
+                    el.style.maxHeight = '';
+                    el.style.overflow = '';
+                });
                 document.body.classList.remove('is-exporting');
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('landscape', 'pt', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
-                pdf.addImage(imgData, 'JPEG', 20, 20, pdfWidth - 40, pdfHeight - 40);
+                
+                const imgWidth = pdfWidth - 40;
+                const pageHeightPt = pdfHeight - 40;
+                
+                const scaleFactor = imgWidth / canvas.width;
+                const pageHeightCanvasPixels = pageHeightPt / scaleFactor;
+                
+                let totalHeightCanvas = canvas.height;
+                let currentY = 0;
+                let pageNum = 0;
+        
+                while (currentY < totalHeightCanvas) {
+                    const sliceHeight = Math.min(pageHeightCanvasPixels, totalHeightCanvas - currentY);
+                    
+                    const sliceCanvas = document.createElement('canvas');
+                    sliceCanvas.width = canvas.width;
+                    sliceCanvas.height = sliceHeight;
+                    const ctx = sliceCanvas.getContext('2d');
+                    
+                    ctx.drawImage(canvas, 0, currentY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+                    
+                    const sliceData = sliceCanvas.toDataURL('image/jpeg', 1.0);
+                    const sliceHeightPt = sliceHeight * scaleFactor;
+                    
+                    if (pageNum > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    pdf.addImage(sliceData, 'JPEG', 20, 20, imgWidth, sliceHeightPt);
+                    
+                    currentY += sliceHeight;
+                    pageNum++;
+                }
+        
                 pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
+                canvasContainer.style.height = originalHeight;
+                canvasContainer.style.maxHeight = originalMaxHeight;
+                canvasContainer.style.overflow = originalOverflow;
+        
+                document.querySelectorAll('.items-list').forEach(el => {
+                    el.style.maxHeight = '';
+                    el.style.overflow = '';
+                });
                 document.body.classList.remove('is-exporting');
             });
         }
