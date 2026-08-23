@@ -1121,7 +1121,7 @@
         function exportPDF() {
             document.body.classList.add('is-exporting');
             
-            // 1. Guardamos los estilos previos del contenedor principal y lo expandimos por completo
+            // 1. Expandimos el contenedor principal del canvas para que no corte la altura vertical
             const canvasContainer = document.getElementById('canvas-to-export');
             const originalHeight = canvasContainer.style.height;
             const originalMaxHeight = canvasContainer.style.maxHeight;
@@ -1131,7 +1131,7 @@
             canvasContainer.style.maxHeight = 'none';
             canvasContainer.style.overflow = 'visible';
         
-            // 2. Expandimos todas las listas internas para que muestren toda la data
+            // 2. Expandimos todas las listas internas para que muestren toda la data densa
             document.querySelectorAll('.items-list').forEach(el => {
                 el.style.maxHeight = 'none';
                 el.style.overflow = 'visible';
@@ -1159,18 +1159,18 @@
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight() - 40; // Alto útil por página
                 
-                // 3. Dimensiones proporcionales basadas en la altura real de la imagen expandida
+                // 3. Dimensiones proporcionales para evitar compresión en las letras
                 const imgWidth = pdfWidth - 40;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
                 let heightLeft = imgHeight;
                 let position = 20;
         
-                // 4. Primera página
+                // 4. Primera página del PDF
                 pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
         
-                // 5. Generación de múltiples páginas automáticas si la altura superó una hoja
+                // 5. Generación automática de páginas adicionales si el contenido supera una hoja
                 while (heightLeft > 0) {
                     position = heightLeft - imgHeight + 20; 
                     pdf.addPage();
@@ -1178,9 +1178,10 @@
                     heightLeft -= pageHeight;
                 }
         
+                // 6. Descarga del archivo final
                 pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
-                // Restauración en caso de error
+                // Restauración de seguridad en caso de cualquier error
                 canvasContainer.style.height = originalHeight;
                 canvasContainer.style.maxHeight = originalMaxHeight;
                 canvasContainer.style.overflow = originalOverflow;
