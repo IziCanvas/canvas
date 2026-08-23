@@ -1141,14 +1141,26 @@
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 
                 // 2. Cálculo proporcional sin aplastar las letras
-                const imgWidth = pdfWidth - 40;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                const pdfHeight = pdf.internal.pageSize.getHeight() - 40;
-        
-                pdf.addImage(imgData, 'JPEG', 20, 20, imgWidth, imgHeight);
+                        const imgWidth = pdfWidth - 40;
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        const pageHeight = pdf.internal.pageSize.getHeight() - 40; // Alto útil por hoja
                 
-                // 3. ¡Línea de guardado restaurada para que el archivo vuelva a descargarse!
-                pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
+                        let heightLeft = imgHeight;
+                        let position = 20;
+                
+                        // 1. Primera página
+                        pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                
+                        // 2. Crea páginas adicionales de forma automática si la data es muy larga
+                        while (heightLeft > 0) {
+                            position = heightLeft - imgHeight + 20; // Posición de la siguiente porción de imagen
+                            pdf.addPage();
+                            pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+                            heightLeft -= pageHeight;
+                        }
+                
+                        pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
                 // Restauramos estilos si ocurre algún error
                 document.querySelectorAll('.items-list').forEach(el => {
