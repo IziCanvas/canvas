@@ -280,12 +280,17 @@
             <input type="email" id="auth-email" placeholder="Correo electrónico" onkeypress="handleAuthEnter(event)">
             <input type="password" id="auth-password" placeholder="Contraseña" onkeypress="handleAuthEnter(event)">
             
+            <!-- Campos específicos para el cambio de contraseña al venir del enlace de recuperación -->
+            <div id="update-password-fields" style="display: none;">
+                <input type="password" id="auth-new-password" placeholder="Nueva contraseña (mínimo 6 caracteres)" onkeypress="handleAuthEnter(event)">
+            </div>
+
             <button class="btn-primary" id="auth-btn" onclick="handleAuthSubmit()">Entrar</button>
             
             <div id="auth-error" class="auth-error"></div>
             <div id="auth-success" class="auth-success"></div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 5px;">
+            <div id="auth-links-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; flex-wrap: wrap; gap: 5px;">
                 <button class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-btn" style="margin-top:0;">¿No tienes cuenta? Regístrate aquí</button>
                 <button class="auth-toggle" onclick="toggleForgotPassword()" id="auth-forgot-btn" style="margin-top:0;">¿Olvidaste tu contraseña?</button>
             </div>
@@ -452,6 +457,7 @@
         let currentUser = null;
         let isSignUpMode = false;
         let isForgotMode = false;
+        let isPasswordRecoveryFlow = false; // Controla si estamos procesando un enlace de recuperación de contraseña
 
         let canvasData = { 
             projectName: "Mi Proyecto Canvas", 
@@ -468,8 +474,29 @@
             }
 
             if (supabaseClient) {
+                // Escuchar eventos de autenticación de Supabase en tiempo real (vital para PASSWORD_RECOVERY)
+                supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                    if (event === 'PASSWORD_RECOVERY') {
+                        isPasswordRecoveryFlow = true;
+                        // Mostrar pantalla de auth y campos para actualizar clave, ocultando campos innecesarios
+                        document.getElementById('auth-overlay').style.display = 'flex';
+                        document.getElementById('app-content').style.display = 'none';
+                        document.getElementById('auth-email').style.display = 'none';
+                        document.getElementById('auth-password').style.display = 'none';
+                        document.getElementById('update-password-fields').style.display = 'block';
+                        document.getElementById('auth-links-container').style.display = 'none';
+                        
+                        document.getElementById('auth-title').innerText = "🔑 Establecer Nueva Contraseña";
+                        document.getElementById('auth-subtitle').innerText = "Ingresa tu nueva contraseña para continuar";
+                        document.getElementById('auth-btn').innerText = "Actualizar contraseña";
+                    } else if (session && session.user && !isPasswordRecoveryFlow) {
+                        currentUser = session.user;
+                        unlockApp();
+                    }
+                });
+
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session && session.user) {
+                if (session && session.user && !isPasswordRecoveryFlow) {
                     currentUser = session.user;
                     unlockApp();
                 }
@@ -516,22 +543,46 @@
         }
 
         async function handleAuthSubmit() {
-            const email = document.getElementById('auth-email').value.trim();
-            const password = document.getElementById('auth-password').value;
             const errorEl = document.getElementById('auth-error');
             const successEl = document.getElementById('auth-success');
 
             errorEl.style.display = 'none';
             successEl.style.display = 'none';
 
-            if (!email || (!password && !isForgotMode)) {
-                errorEl.innerText = "Por favor, completa todos los campos.";
+            if (!supabaseClient) {
+                errorEl.innerText = "Error de conexión con Supabase.";
                 errorEl.style.display = 'block';
                 return;
             }
 
-            if (!supabaseClient) {
-                errorEl.innerText = "Error de conexión con Supabase.";
+            // Si el usuario está procesando el cambio de contraseña desde el enlace del correo
+            if (isPasswordRecoveryFlow) {
+                const newPassword = document.getElementById('auth-new-password').value;
+                if (!newPassword || newPassword.length < 6) {
+                    errorEl.innerText = "La contraseña debe tener al menos 6 caracteres.";
+                    errorEl.style.display = 'block';
+                    return;
+                }
+
+                const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+                if (error) {
+                    errorEl.innerText = error.message;
+                    errorEl.style.display = 'block';
+                } else {
+                    successEl.innerText = "¡Contraseña actualizada con éxito! Redirigiendo...";
+                    successEl.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = window.location.pathname; // Limpia los tokens de la URL y recarga
+                    }, 2000);
+                }
+                return;
+            }
+
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+
+            if (!email || (!password && !isForgotMode)) {
+                errorEl.innerText = "Por favor, completa todos los campos.";
                 errorEl.style.display = 'block';
                 return;
             }
