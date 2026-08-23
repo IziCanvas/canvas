@@ -1143,9 +1143,13 @@
                 // 2. Aquí cambiamos el cálculo de la altura para que sea proporcional y no comprima las letras
                 const imgWidth = pdfWidth - 40;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // Obtenemos el alto útil de la página PDF
+                const pdfHeight = pdf.internal.pageSize.getHeight() - 40;
         
+                // Si la imagen es más alta que una página, dejamos que mantenga su proporción natural 
+                // sin aplastar el diseño (evitando la compresión de las letras).
                 pdf.addImage(imgData, 'JPEG', 20, 20, imgWidth, imgHeight);
-                pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
                 // Restauramos estilos si ocurre algún error
                 document.querySelectorAll('.items-list').forEach(el => {
