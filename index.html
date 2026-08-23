@@ -468,6 +468,21 @@
             }
 
             if (supabaseClient) {
+                // Escuchar eventos de Autenticación, incluyendo recuperación de contraseña
+                supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                    if (event === "PASSWORD_RECOVERY") {
+                        const newPassword = prompt("Ingresa tu nueva contraseña:");
+                        if (newPassword) {
+                            const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+                            if (error) {
+                                alert("Error al actualizar la contraseña: " + error.message);
+                            } else {
+                                alert("¡Contraseña actualizada con éxito! Ya puedes iniciar sesión o navegar.");
+                            }
+                        }
+                    }
+                });
+
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (session && session.user) {
                     currentUser = session.user;
