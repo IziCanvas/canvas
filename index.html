@@ -1121,13 +1121,17 @@
         function exportPDF() {
             document.body.classList.add('is-exporting');
             
-            // 1. Expandimos temporalmente las listas para que no compriman la data
+            // 1. Expandimos temporalmente las listas para que no compriman la data densa
             document.querySelectorAll('.items-list').forEach(el => {
                 el.style.maxHeight = 'none';
                 el.style.overflow = 'visible';
             });
         
-            html2canvas(document.getElementById('canvas-to-export'), { scale: 3, useCORS: true, logging: false }).then(canvas => {
+            html2canvas(document.getElementById('canvas-to-export'), { 
+                scale: 3, 
+                useCORS: true, 
+                logging: false 
+            }).then(canvas => {
                 // Restauramos los estilos originales de las listas
                 document.querySelectorAll('.items-list').forEach(el => {
                     el.style.maxHeight = '';
@@ -1139,30 +1143,31 @@
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('landscape', 'pt', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight() - 40; // Alto útil por página
                 
-                // 2. Cálculo proporcional sin aplastar las letras
-                        const imgWidth = pdfWidth - 40;
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                        const pageHeight = pdf.internal.pageSize.getHeight() - 40; // Alto útil por hoja
+                // 2. Calculamos las dimensiones proporcionales para evitar compresión en las letras
+                const imgWidth = pdfWidth - 40;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
-                        let heightLeft = imgHeight;
-                        let position = 20;
-                
-                        // 1. Primera página
-                        pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
-                        heightLeft -= pageHeight;
-                
-                        // 2. Crea páginas adicionales de forma automática si la data es muy larga
-                        while (heightLeft > 0) {
-                            position = heightLeft - imgHeight + 20; // Posición de la siguiente porción de imagen
-                            pdf.addPage();
-                            pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
-                            heightLeft -= pageHeight;
-                        }
-                
-                        pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
+                let heightLeft = imgHeight;
+                let position = 20;
+        
+                // 3. Primera página
+                pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+        
+                // 4. Generación automática de páginas adicionales si el contenido es largo
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight + 20; 
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+        
+                // 5. Descarga del archivo final multipágina
+                pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
-                // Restauramos estilos si ocurre algún error
+                // Restauramos estilos si ocurre algún error en el proceso
                 document.querySelectorAll('.items-list').forEach(el => {
                     el.style.maxHeight = '';
                     el.style.overflow = '';
