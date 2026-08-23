@@ -1121,18 +1121,32 @@
         function exportPDF() {
             document.body.classList.add('is-exporting');
             
-            // 1. Expandimos temporalmente las listas para que no compriman la data densa
+            // 1. Guardamos los estilos previos del contenedor principal y lo expandimos por completo
+            const canvasContainer = document.getElementById('canvas-to-export');
+            const originalHeight = canvasContainer.style.height;
+            const originalMaxHeight = canvasContainer.style.maxHeight;
+            const originalOverflow = canvasContainer.style.overflow;
+        
+            canvasContainer.style.height = 'auto';
+            canvasContainer.style.maxHeight = 'none';
+            canvasContainer.style.overflow = 'visible';
+        
+            // 2. Expandimos todas las listas internas para que muestren toda la data
             document.querySelectorAll('.items-list').forEach(el => {
                 el.style.maxHeight = 'none';
                 el.style.overflow = 'visible';
             });
         
-            html2canvas(document.getElementById('canvas-to-export'), { 
+            html2canvas(canvasContainer, { 
                 scale: 3, 
                 useCORS: true, 
                 logging: false 
             }).then(canvas => {
-                // Restauramos los estilos originales de las listas
+                // Restauramos los estilos originales del contenedor y las listas
+                canvasContainer.style.height = originalHeight;
+                canvasContainer.style.maxHeight = originalMaxHeight;
+                canvasContainer.style.overflow = originalOverflow;
+        
                 document.querySelectorAll('.items-list').forEach(el => {
                     el.style.maxHeight = '';
                     el.style.overflow = '';
@@ -1145,18 +1159,18 @@
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight() - 40; // Alto útil por página
                 
-                // 2. Calculamos las dimensiones proporcionales para evitar compresión en las letras
+                // 3. Dimensiones proporcionales basadas en la altura real de la imagen expandida
                 const imgWidth = pdfWidth - 40;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
                 let heightLeft = imgHeight;
                 let position = 20;
         
-                // 3. Primera página
+                // 4. Primera página
                 pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
         
-                // 4. Generación automática de páginas adicionales si el contenido es largo
+                // 5. Generación de múltiples páginas automáticas si la altura superó una hoja
                 while (heightLeft > 0) {
                     position = heightLeft - imgHeight + 20; 
                     pdf.addPage();
@@ -1164,10 +1178,13 @@
                     heightLeft -= pageHeight;
                 }
         
-                // 5. Descarga del archivo final multipágina
                 pdf.save(`${(canvasData.projectName || 'business-model-canvas').toLowerCase().replace(/\s+/g, '-')}.pdf`);
             }).catch(() => {
-                // Restauramos estilos si ocurre algún error en el proceso
+                // Restauración en caso de error
+                canvasContainer.style.height = originalHeight;
+                canvasContainer.style.maxHeight = originalMaxHeight;
+                canvasContainer.style.overflow = originalOverflow;
+        
                 document.querySelectorAll('.items-list').forEach(el => {
                     el.style.maxHeight = '';
                     el.style.overflow = '';
