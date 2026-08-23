@@ -883,42 +883,41 @@
         async function syncData() {
             const nameInputVal = document.getElementById('project-name-input').value;
             if (nameInputVal) canvasData.projectName = nameInputVal;
-        
-            // 1. Respaldo local de seguridad
-            localStorage.setItem('bmc_data_' + currentProjectId, JSON.stringify(canvasData));
-        
-            // Si no hay conexión o ID válido, detenemos la parte remota
-            if (!supabaseClient || !currentProjectId) return;
-        
-            // 2. Guardado definitivo en la base de datos de Supabase
+
+            saveToLocalStorage();
+
+            if (!currentProjectId || !supabaseClient || !isSupabaseActive) return;
+
+            const payloadUpdate = { 
+                name: canvasData.projectName || "Sin Nombre",
+                data: canvasData
+            };
+            
+            if (currentProjectId.toString().indexOf('local_') === -1) {
+                payloadUpdate.updated_at = new Date();
+            }
+
             const { error } = await supabaseClient
                 .from('projects')
-                .update({ 
-                    name: canvasData.projectName || "Sin Nombre",
-                    data: canvasData,
-                    updated_at: new Date()
-                })
+                .update(payloadUpdate)
                 .eq('id', currentProjectId);
-        
+
             if (error) {
-                console.error('Error al guardar en la base de datos:', error.message);
-                return;
+                console.error('Error al sincronizar con Supabase:', error);
             }
-        
-            // 3. ACTUALIZACIÓN EN TIEMPO REAL: Disparar el canal broadcast para los demás computadores
-            if (canvasChannel) {
+
+            const selectEl = document.getElementById('project-select');
+            const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
+            if (opt && canvasData.projectName) {
+                opt.textContent = canvasData.projectName;
+            }
+
+            if (isSupabaseActive && canvasChannel) {
                 canvasChannel.send({
                     type: 'broadcast', 
                     event: 'canvas_update', 
                     payload: { id: currentProjectId, data: canvasData }
                 });
-            }
-        
-            // Actualizar también el nombre en el selector visualmente si cambió
-            const selectEl = document.getElementById('project-select');
-            const opt = selectEl.querySelector(`option[value="${currentProjectId}"]`);
-            if (opt && canvasData.projectName) {
-                opt.textContent = canvasData.projectName;
             }
         }
 
@@ -1110,8 +1109,3 @@
     </script>
 </body>
 </html>
-
-                setLogoImage(canvasData.logo || null);
-                renderAll();
-            }
-        }
