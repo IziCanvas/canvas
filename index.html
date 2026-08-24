@@ -71,7 +71,8 @@
         body.is-exporting .color-selector,
         body.is-exporting .controls,
         body.is-exporting #connection-status,
-        body.is-exporting #project-selector-container {
+        body.is-exporting #project-selector-container,
+        body.is-exporting .block-help-btn {
             display: none !important;
         }
 
@@ -190,6 +191,25 @@
             font-size: 13px; font-weight: 700; color: var(--header-bg); margin-bottom: 8px;
             display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;
             flex-shrink: 0;
+        }
+
+        .block-title-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .block-help-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .block-help-btn:hover {
+            background: rgba(37, 99, 235, 0.1);
         }
 
         .items-list { 
@@ -336,7 +356,13 @@
             <div class="canvas-grid">
                 
                 <div class="canvas-block block-kp">
-                    <div class="block-title"><span>Socios Clave</span><span>🤝</span></div>
+                    <div class="block-title">
+                        <span>Socios Clave</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('kp')" title="Guía metodológica">❓</button>
+                            <span>🤝</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-kp"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -348,7 +374,13 @@
                 </div>
 
                 <div class="canvas-block block-ka">
-                    <div class="block-title"><span>Actividades Clave</span><span>⚙️</span></div>
+                    <div class="block-title">
+                        <span>Actividades Clave</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('ka')" title="Guía metodológica">❓</button>
+                            <span>⚙️</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-ka"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -360,7 +392,13 @@
                 </div>
 
                 <div class="canvas-block block-kr">
-                    <div class="block-title"><span>Recursos Clave</span><span>💡</span></div>
+                    <div class="block-title">
+                        <span>Recursos Clave</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('kr')" title="Guía metodológica">❓</button>
+                            <span>💡</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-kr"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -372,7 +410,13 @@
                 </div>
 
                 <div class="canvas-block block-vp">
-                    <div class="block-title"><span>Propuesta de Valor</span><span>🎁</span></div>
+                    <div class="block-title">
+                        <span>Propuesta de Valor</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('vp')" title="Guía metodológica">❓</button>
+                            <span>🎁</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-vp"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -384,7 +428,13 @@
                 </div>
 
                 <div class="canvas-block block-cr">
-                    <div class="block-title"><span>Relaciones con Clientes</span><span>❤️</span></div>
+                    <div class="block-title">
+                        <span>Relaciones con Clientes</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('cr')" title="Guía metodológica">❓</button>
+                            <span>❤️</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-cr"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -396,7 +446,13 @@
                 </div>
 
                 <div class="canvas-block block-ch">
-                    <div class="block-title"><span>Canales</span><span>🚚</span></div>
+                    <div class="block-title">
+                        <span>Canales</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('ch')" title="Guía metodológica">❓</button>
+                            <span>🚚</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-ch"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -408,7 +464,13 @@
                 </div>
 
                 <div class="canvas-block block-cs">
-                    <div class="block-title"><span>Segmentos de Clientes</span><span>👥</span></div>
+                    <div class="block-title">
+                        <span>Segmentos de Clientes</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('cs')" title="Guía metodológica">❓</button>
+                            <span>👥</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-cs"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -420,7 +482,13 @@
                 </div>
 
                 <div class="canvas-block block-cost">
-                    <div class="block-title"><span>Estructura de Costos</span><span>📊</span></div>
+                    <div class="block-title">
+                        <span>Estructura de Costos</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('cost')" title="Guía metodológica">❓</button>
+                            <span>📊</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-cost"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -432,7 +500,13 @@
                 </div>
 
                 <div class="canvas-block block-rev">
-                    <div class="block-title"><span>Fuentes de Ingreso</span><span>💰</span></div>
+                    <div class="block-title">
+                        <span>Fuentes de Ingreso</span>
+                        <div class="block-title-right">
+                            <button class="block-help-btn" onclick="showBlockHelp('rev')" title="Guía metodológica">❓</button>
+                            <span>💰</span>
+                        </div>
+                    </div>
                     <div class="items-list" id="list-rev"></div>
                     <div class="add-item-box">
                         <div class="input-row">
@@ -467,6 +541,129 @@
         let supabaseClient = null;
         let canvasChannel = null;
         let isSupabaseActive = false;
+
+        // Guías Metodológicas de Alexander Osterwalder
+        const osterwalderHelpTexts = {
+            kp: {
+                title: "Socios Clave (Key Partners)",
+                desc: "La red de proveedores y socios que hacen que el modelo de negocio funcione. Ayudan a reducir riesgos, adquirir recursos o compartir actividades.",
+                questions: [
+                    "¿Quiénes son nuestros socios clave?",
+                    "¿Quiénes son nuestros proveedores clave?",
+                    "¿Qué recursos clave adquirimos de los socios?",
+                    "¿Qué actividades clave realizan los socios?"
+                ]
+            },
+            ka: {
+                title: "Actividades Clave (Key Activities)",
+                desc: "Las acciones más importantes que debe emprender una empresa para que su modelo de negocio funcione con éxito.",
+                questions: [
+                    "¿Qué actividades clave requieren nuestras propuestas de valor?",
+                    "¿Y nuestros canales de distribución?",
+                    "¿Y las relaciones con clientes?",
+                    "¿Y las fuentes de ingresos?"
+                ]
+            },
+            kr: {
+                title: "Recursos Clave (Key Resources)",
+                desc: "Los activos más importantes requeridos para que un modelo de negocio funcione. Pueden ser físicos, intelectuales, financieros o humanos.",
+                questions: [
+                    "¿Qué recursos clave requieren nuestras propuestas de valor?",
+                    "¿Y nuestros canales de distribución?",
+                    "¿Y las relaciones con clientes?",
+                    "¿Y las fuentes de ingresos?"
+                ]
+            },
+            vp: {
+                title: "Propuesta de Valor (Value Propositions)",
+                desc: "El conjunto de productos y servicios que crean valor para un segmento de mercado específico y resuelven un problema o satisfacen una necesidad.",
+                questions: [
+                    "¿Qué valor entregamos al cliente?",
+                    "¿Cuál de los problemas de nuestros clientes estamos ayudando a resolver?",
+                    "¿Qué paquetes de productos/servicios ofrecemos a cada segmento?",
+                    "¿Qué necesidades de los clientes estamos satisfaciendo?"
+                ]
+            },
+            cr: {
+                title: "Relaciones con Clientes (Customer Relationships)",
+                desc: "Los tipos de relaciones que una empresa establece con un segmento de mercado específico (asistencia personal, automatización, comunidades, etc.).",
+                questions: [
+                    "¿Qué tipo de relación espera cada uno de nuestros segmentos de clientes?",
+                    "¿Qué relaciones hemos establecido?",
+                    "¿Qué tan costosas son?",
+                    "¿Cómo se integran con el resto de nuestro modelo de negocio?"
+                ]
+            },
+            ch: {
+                title: "Canales (Channels)",
+                desc: "Cómo una empresa se comunica con sus segmentos de mercado y llega a ellos para entregar una propuesta de valor.",
+                questions: [
+                    "¿A través de qué canales quieren ser alcanzados nuestros segmentos de clientes?",
+                    "¿Cómo los estamos alcanzando ahora?",
+                    "¿Cómo se integran nuestros canales?",
+                    "¿Cuáles funcionan mejor y son más rentables?"
+                ]
+            },
+            cs: {
+                title: "Segmentos de Clientes (Customer Segments)",
+                desc: "Los diferentes grupos de personas u organizaciones que una empresa apunta a alcanzar y servir.",
+                questions: [
+                    "¿Para quién estamos creando valor?",
+                    "¿Quiénes son nuestros clientes más importantes?",
+                    "¿Cuáles son los arquetipos de cliente ideales?"
+                ]
+            },
+            cost: {
+                title: "Estructura de Costos (Cost Structure)",
+                desc: "Todos los costos incurridos para operar un modelo de negocio, incluyendo costos fijos y variables.",
+                questions: [
+                    "¿Cuáles son los costos más importantes inherentes a nuestro modelo?",
+                    "¿Qué recursos clave son los más caros?",
+                    "¿Qué actividades clave son las más caras?"
+                ]
+            },
+            rev: {
+                title: "Fuentes de Ingreso (Revenue Streams)",
+                desc: "El flujo de caja que genera una empresa a partir de cada segmento de mercado (ventas, suscripciones, publicidad, comisiones, etc.).",
+                questions: [
+                    "¿Por qué valor están dispuestos a pagar nuestros clientes?",
+                    "¿Por qué pagan actualmente?",
+                    "¿Cómo pagan actualmente?",
+                    "¿Cuánto contribuye cada fuente de ingresos al total general?"
+                ]
+            }
+        };
+
+        function showBlockHelp(blockId) {
+            const info = osterwalderHelpTexts[blockId];
+            if (!info) return;
+
+            const overlay = document.createElement('div');
+            overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; justify-content:center; align-items:center; padding: 15px;";
+            
+            const box = document.createElement('div');
+            box.style = "background:white; padding:25px; border-radius:10px; width:100%; max-width:500px; box-shadow:0 10px 25px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;";
+            
+            let questionsHtml = info.questions.map(q => `<li style="margin-bottom:6px; font-size:13px; color:#334155;">${q}</li>`).join('');
+            
+            box.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                    <h3 style="margin:0; color:#0f172a; font-size:16px;">📖 Guía Osterwalder: ${info.title}</h3>
+                    <button onclick="document.body.removeChild(this.parentElement.parentElement.parentElement)" style="background:none; border:none; font-size:16px; cursor:pointer; font-weight:bold; color:#64748b;">&times;</button>
+                </div>
+                <p style="font-size:14px; color:#475569; line-height:1.5; margin-bottom:15px;">${info.desc}</p>
+                <h4 style="font-size:13px; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Preguntas clave para reflexionar:</h4>
+                <ul style="padding-left:20px; margin-bottom:20px;">
+                    ${questionsHtml}
+                </ul>
+                <div style="display:flex; justify-content:flex-end;">
+                    <button onclick="document.body.removeChild(this.parentElement.parentElement.parentElement)" class="btn-primary" style="padding: 6px 14px;">Entendido</button>
+                </div>
+            `;
+            
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+        }
 
         window.onload = async function() {
             if (typeof supabase !== 'undefined') {
